@@ -8,6 +8,17 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  List<Map<String, dynamic>> filteredMenuItems = [];
+  @override
+  void initState() {
+    super.initState();
+    // 初始化 filteredMenuItems，根據預設的分類過濾菜單項目
+    filteredMenuItems =
+        menuItems
+            .where((item) => item['category'] == selectedCategory)
+            .toList();
+  }
+
   List<Map<String, dynamic>> menuItems = [
     {'name': '拿鐵232', 'category': '飲品', 'price': 5},
     {'name': '摩卡', 'category': '飲品', 'price': 6},
@@ -38,6 +49,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     {'name': '鮮榨果汁', 'category': '飲品6', 'price': 4},
     {'name': '蔬菜沙拉', 'category': '沙拉7', 'price': 5},
   ];
+
+  // 設置選中的訂單項目，並更新客製化UI
+  void setSelectedOrderItem(Map<String, dynamic> item) {
+    setState(() {
+      selectedOrderItem = item; // 保存選中的訂單項目
+      print('選中的訂單項目: $selectedOrderItem');
+      // 更新UI（例如：選擇的糖度、冰塊等）
+      updateCustomizationUI(selectedOrderItem);
+    });
+  }
+
+  void updateCustomizationUI(Map<String, dynamic>? selectedItem) {
+    if (selectedItem == null) return;
+
+    // 清除所有選項的選中狀態
+    for (var option in options) {
+      option['selected'] = false;
+    }
+
+    // 定義各類型的欄位對應名稱
+    Map<String, String> typeToField = {
+      'sugar': 'sugar_level',
+      'ice': 'ice',
+      'eco_cup': 'eco_cup',
+    };
+
+    // 根據欄位內容更新選項
+    for (var type in typeToField.keys) {
+      String? value = selectedItem[typeToField[type]];
+      if (value != null && value.isNotEmpty) {
+        for (var option in options) {
+          if (option['type'] == type && option['name'] == value) {
+            option['selected'] = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // 更新配料（例如椰果、珍珠等）
+    if (selectedItem.containsKey('options')) {
+      for (var selectedOpt in selectedItem['options']) {
+        var matched = options.firstWhere(
+          (opt) => opt['name'] == selectedOpt['name'],
+          orElse: () => {},
+        );
+        if (matched.isNotEmpty) {
+          matched['selected'] = true;
+        }
+      }
+    }
+  }
+
   // 合併所有客製化選項，包括冰塊、糖度和環保杯
   List<Map<String, dynamic>> options = [
     {'name': '正常冰', 'price': 0, 'type': 'ice', 'selected': false},
@@ -66,21 +130,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     return total;
   }
-bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selectedOrder) {
-  String type = option['type'];
 
-  if (type == 'ice') {
-    return selectedOrder['ice'] == option['name'];
-  } else if (type == 'sugar') {
-    return selectedOrder['sugar_level'] == option['name'];
-  } else if (type == 'eco_cup') {
-    return selectedOrder['eco_cup'] == '環保杯';
-  } else if (type == 'topping') {
-    return selectedOrder['options'].any((opt) => opt['name'] == option['name']);
+  bool isOptionSelected(
+    Map<String, dynamic> option,
+    Map<String, dynamic> selectedOrder,
+  ) {
+    String type = option['type'];
+
+    if (type == 'ice') {
+      return selectedOrder['ice'] == option['name'];
+    } else if (type == 'sugar') {
+      return selectedOrder['sugar_level'] == option['name'];
+    } else if (type == 'eco_cup') {
+      return selectedOrder['eco_cup'] == '環保杯';
+    } else if (type == 'topping') {
+      return selectedOrder['options'].any(
+        (opt) => opt['name'] == option['name'],
+      );
+    }
+
+    return false;
   }
-
-  return false;
-}
 
   // 添加飲料到訂單
   void _addToOrder(String name, int price) {
@@ -115,12 +185,7 @@ bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selected
   Map<String, dynamic>? selectedOrder;
   List<String> selectedOptions = []; // 儲存選擇的客製化選項
 
-  // 當用戶點擊新產品時，清空上次選擇的所有選項
-  void resetOptions() {
-    selectedOptions = []; // 清空之前選擇的所有選項
-  }
-
-  String? selectedCategory;
+  String selectedCategory = '飲品';
   // 處理結帳
   void _placeOrder() {
     showDialog(
@@ -248,6 +313,15 @@ bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selected
                                 onPressed: () {
                                   setState(() {
                                     selectedCategory = category; // 更新選中的分類
+                                    print(category);
+                                    filteredMenuItems =
+                                        menuItems
+                                            .where(
+                                              (item) =>
+                                                  item['category'] ==
+                                                  selectedCategory,
+                                            )
+                                            .toList();
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -299,9 +373,9 @@ bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selected
                                   mainAxisSpacing: 10,
                                   childAspectRatio: 2.5,
                                 ),
-                            itemCount: menuItems.length,
+                            itemCount: filteredMenuItems.length,
                             itemBuilder: (context, index) {
-                              var item = menuItems[index];
+                              var item = filteredMenuItems[index];
                               return Card(
                                 margin: const EdgeInsets.symmetric(vertical: 5),
                                 elevation: 3,
@@ -311,6 +385,7 @@ bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selected
                                 child: InkWell(
                                   onTap: () {
                                     _addToOrder(item['name'], item['price']);
+                                    setSelectedOrderItem(item);
                                   },
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -363,67 +438,96 @@ bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selected
 
                                     return GestureDetector(
                                       onTap: () {
-  setState(() {
-    option['selected'] = !option['selected'];
+                                        setState(() {
+                                          option['selected'] =
+                                              !option['selected'];
 
-    var selectedOrder = orderItems.firstWhere(
-      (item) => item['selected'] == true,
+                                          var selectedOrder = orderItems
+                                              .firstWhere(
+                                                (item) =>
+                                                    item['selected'] == true,
+                                              );
 
-    );
+                                          if (selectedOrder == null) {
+                                            print('⚠️ 沒有選中的飲料項目，無法設定客製化');
+                                            return;
+                                          }
 
-    if (selectedOrder == null) {
-      print('⚠️ 沒有選中的飲料項目，無法設定客製化');
-      return;
-    }
+                                          String type = option['type'];
 
-    String type = option['type'];
+                                          if (type != 'topping') {
+                                            for (var opt in options.where(
+                                              (opt) => opt['type'] == type,
+                                            )) {
+                                              if (opt != option) {
+                                                opt['selected'] = false;
+                                              }
+                                            }
+                                          }
 
-    if (type != 'topping') {
-      for (var opt in options.where((opt) => opt['type'] == type)) {
-        if (opt != option) {
-          opt['selected'] = false;
-        }
-      }
-    }
+                                          if (option['selected']) {
+                                            if (type == 'ice') {
+                                              selectedOrder['ice'] =
+                                                  option['name'];
+                                            } else if (type == 'sugar') {
+                                              selectedOrder['sugar_level'] =
+                                                  option['name'];
+                                            } else if (type == 'eco_cup') {
+                                              selectedOrder['eco_cup'] = '環保杯';
+                                              selectedOrder['price'] -= 5;
+                                            } else if (type == 'topping') {
+                                              if (!selectedOrder['options'].any(
+                                                (o) =>
+                                                    o['name'] == option['name'],
+                                              )) {
+                                                selectedOrder['options'].add(
+                                                  option,
+                                                );
+                                                selectedOrder['price'] +=
+                                                    option['price'];
+                                              }
+                                            }
+                                          } else {
+                                            if (type == 'ice') {
+                                              selectedOrder['ice'] = '';
+                                            } else if (type == 'sugar') {
+                                              selectedOrder['sugar_level'] = '';
+                                            } else if (type == 'eco_cup') {
+                                              selectedOrder['eco_cup'] = '';
+                                              selectedOrder['price'] += 5;
+                                            } else if (type == 'topping') {
+                                              selectedOrder['options']
+                                                  .removeWhere(
+                                                    (o) =>
+                                                        o['name'] ==
+                                                        option['name'],
+                                                  );
+                                              selectedOrder['price'] -=
+                                                  option['price'];
+                                            }
+                                          }
 
-    if (option['selected']) {
-      if (type == 'ice') {
-        selectedOrder['ice'] = option['name'];
-      } else if (type == 'sugar') {
-        selectedOrder['sugar_level'] = option['name'];
-      } else if (type == 'eco_cup') {
-        selectedOrder['eco_cup'] = '環保杯';
-        selectedOrder['price'] -= 5;
-      } else if (type == 'topping') {
-        if (!selectedOrder['options'].any((o) => o['name'] == option['name'])) {
-          selectedOrder['options'].add(option);
-          selectedOrder['price'] += option['price'];
-        }
-      }
-    } else {
-      if (type == 'ice') {
-        selectedOrder['ice'] = '';
-      } else if (type == 'sugar') {
-        selectedOrder['sugar_level'] = '';
-      } else if (type == 'eco_cup') {
-        selectedOrder['eco_cup'] = '';
-        selectedOrder['price'] += 5;
-      } else if (type == 'topping') {
-        selectedOrder['options'].removeWhere((o) => o['name'] == option['name']);
-        selectedOrder['price'] -= option['price'];
-      }
-    }
-
-    // 印出目前的訂單狀態
-    print('🎯 目前作用在飲料: ${selectedOrder['name']}');
-    print('🧊 冰量: ${selectedOrder['ice']}');
-    print('🍬 甜度: ${selectedOrder['sugar_level']}');
-    print('🛍️ 是否環保杯: ${selectedOrder['eco_cup']}');
-    print('➕ 加料: ${selectedOrder['options'].map((e) => e['name'])}');
-    print('💰 總價: ${selectedOrder['price']}');
-  });
-},
-
+                                          // 印出目前的訂單狀態
+                                          print(
+                                            '🎯 目前作用在飲料: ${selectedOrder['name']}',
+                                          );
+                                          print(
+                                            '🧊 冰量: ${selectedOrder['ice']}',
+                                          );
+                                          print(
+                                            '🍬 甜度: ${selectedOrder['sugar_level']}',
+                                          );
+                                          print(
+                                            '🛍️ 是否環保杯: ${selectedOrder['eco_cup']}',
+                                          );
+                                          print(
+                                            '➕ 加料: ${selectedOrder['options'].map((e) => e['name'])}',
+                                          );
+                                          print(
+                                            '💰 總價: ${selectedOrder['price']}',
+                                          );
+                                        });
+                                      },
 
                                       child: Card(
                                         margin: const EdgeInsets.symmetric(
@@ -528,10 +632,7 @@ bool isOptionSelected(Map<String, dynamic> option, Map<String, dynamic> selected
 
                               // 設置當前點擊的項目為選中
                               item['selected'] = true;
-                              // 打印選中的 item 的內容
-                              // 保存選中的 orderItem
-                              selectedOrderItem = item; // 將選中的訂單項目保存在變數中
-                              print('選中的訂單項目: $selectedOrderItem'); // 確認選中的訂單項目
+                              setSelectedOrderItem(item);
                             });
                           },
 
