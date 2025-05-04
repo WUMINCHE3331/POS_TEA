@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pos_system/DatabaseHelper.dart';
+import 'dart:convert';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -8,54 +10,88 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
+  List<Map<String, dynamic>> menuItems = []; // 這裡改為 List，而不是 Future
+  List<Map<String, dynamic>> options = []; // 這裡改為 List，而不是 Future
   List<Map<String, dynamic>> filteredMenuItems = [];
   @override
   void initState() {
     super.initState();
-    // 初始化 filteredMenuItems，根據預設的分類過濾菜單項目
-    filteredMenuItems =
-        menuItems
-            .where((item) => item['category'] == selectedCategory)
-            .toList();
+    // 讀取資料庫中的菜單項目
+    // 讀取資料庫中的菜單項目
+    // 初始化菜單資料並讀取資料庫中的菜單項目
+    _loadMenuItems();
+    _loadOptions();
+  }
+
+  // 異步加載菜單資料
+  Future<void> _loadMenuItems() async {
+    // 讀取資料庫中的菜單項目
+    var menuData = await DatabaseHelper().getMenuItems();
+
+    // 使用 setState 更新 UI，將資料設置為菜單項目
+    setState(() {
+      menuItems = menuData;
+
+      // 根據預設的分類過濾菜單項目
+      filteredMenuItems =
+          menuItems
+              .where((item) => item['category'] == selectedCategory)
+              .toList();
+    });
+  }
+
+  // 異步加載option資料
+  Future<void> _loadOptions() async {
+    // 讀取資料庫中的菜單項目
+    var menuData = await DatabaseHelper().getOptions();
+
+    // 使用 setState 更新 UI，將資料設置為菜單項目
+    setState(() {
+      options =
+          menuData.map((item) {
+            return {...item, 'selected': item['selected'] == 1 ? true : false};
+          }).toList();
+
+      print('我是加載: ${options.toString()}');
+    });
   }
 
   num calculateTotalQuantity(List<Map<String, dynamic>> orderItems) {
     return orderItems.fold(0, (sum, item) => sum + item['quantity']);
   }
 
-  List<Map<String, dynamic>> menuItems = [
-    {'name': '拿鐵', 'category': '飲品', 'price': 120},
-    {'name': '摩卡', 'category': '飲品', 'price': 130},
-    {'name': '卡布奇諾', 'category': '飲品', 'price': 125},
-    {'name': '冰茶', 'category': '飲品', 'price': 80},
-    {'name': '巧克力蛋糕', 'category': '甜點', 'price': 100},
-    {'name': '藍莓松餅', 'category': '甜點', 'price': 95},
-    {'name': '蘋果派', 'category': '甜點', 'price': 90},
-    {'name': '雞肉沙拉', 'category': '沙拉', 'price': 150},
-    {'name': '鮮榨橙汁', 'category': '飲品', 'price': 90},
-    {'name': '蔬菜沙拉', 'category': '沙拉', 'price': 120},
-    {'name': '雞胸肉沙拉', 'category': '沙拉', 'price': 140},
-    {'name': '鮮榨葡萄柚汁', 'category': '飲品', 'price': 85},
-    {'name': '煙燻三文魚沙拉', 'category': '沙拉', 'price': 180},
-    {'name': '卡士達蛋糕', 'category': '甜點', 'price': 110},
-    {'name': '藍莓果昔', 'category': '飲品', 'price': 95},
-    {'name': '綜合水果沙拉', 'category': '沙拉', 'price': 130},
-    {'name': '冰拿鐵', 'category': '飲品', 'price': 130},
-    {'name': '抹茶蛋糕', 'category': '甜點', 'price': 105},
-    {'name': '鮮果冰沙', 'category': '飲品', 'price': 110},
-    {'name': '紅豆抹茶冰淇淋', 'category': '甜點', 'price': 85},
-    {'name': '起司蛋糕', 'category': '甜點', 'price': 95},
-    {'name': '檸檬茶', 'category': '飲品', 'price': 75},
-    {'name': '焦糖布丁', 'category': '甜點', 'price': 100},
-    {'name': '美式咖啡', 'category': '飲品', 'price': 100},
-    {'name': '牛油果沙拉', 'category': '沙拉', 'price': 160},
-    {'name': '草莓慕斯', 'category': '甜點', 'price': 105},
-    {'name': '綠茶冰沙', 'category': '飲品', 'price': 95},
-    {'name': '香草冰淇淋', 'category': '甜點', 'price': 80},
-    {'name': '海鮮沙拉', 'category': '沙拉', 'price': 200},
-    {'name': '瑪奇朵', 'category': '飲品', 'price': 135},
-    {'name': '鮮榨蘋果汁', 'category': '飲品', 'price': 85},
-  ];
+  // Future<void> addOrder(
+  //   Map<String, dynamic> order,
+  //   List<Map<String, dynamic>> orderItems,
+  //   List<Map<String, dynamic>> selectedOptions,
+  // ) async {
+  //   final db = await DatabaseHelper().database;
+
+  //   // 開始一個事務
+  //   await db.transaction((txn) async {
+  //     // 插入訂單資料到訂單表格
+  //     int orderId = await txn.insert('orders', order);
+
+  //     // 插入訂單項目
+  //     for (var item in orderItems) {
+  //       // 插入每一個訂單項目
+  //       item['order_id'] = orderId; // 設置訂單ID
+  //       await txn.insert('order_items', item);
+
+  //       // 插入每個訂單項目的選項（如冰塊、糖度等）
+  //       for (var option in selectedOptions) {
+  //         if (option['order_item_id'] == item['order_item_id']) {
+  //           // 插入每個選項
+  //           await txn.insert('order_item_options', {
+  //             'order_item_id': item['order_item_id'],
+  //             'option_id': option['option_id'],
+  //             'selected': option['selected'],
+  //           });
+  //         }
+  //       }
+  //     }
+  //   });
+  // }
 
   // 設置選中的訂單項目，並更新客製化UI
   void setSelectedOrderItem(Map<String, dynamic> item) {
@@ -74,9 +110,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       orderItems.clear();
     });
 
-    // ScaffoldMessenger.of(context).showSnackBar(
-    //   const SnackBar(content: Text('已清空所有訂單項目')),
-    // );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已清空所有訂單項目')),
+    );  
   }
 
   void updateCustomizationUI(Map<String, dynamic>? selectedItem) {
@@ -121,12 +157,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  num receivedCash = 0; // 收到的現金
-  num change = 0; // 找零金額
   String paymentMethod = '現金'; // 預設付款方式
   String pickupMethod = '外帶'; // 預設取餐方式為外帶
-  TextEditingController cashController = TextEditingController(); // 現金輸入框控制器
 
+
+
+  // 顯示結帳對話框
+  _showCheckoutDialog(num totalAmount) {
+      TextEditingController cashController = TextEditingController(text: '0'); // 現金輸入框控制器
+      
+  num receivedCash = 0; // 收到的現金
+    num change = 0 - totalAmount;
   // 計算找零
   void calculateChange(num totalAmount) {
     int cash = int.tryParse(cashController.text) ?? 0;
@@ -135,9 +176,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       change = receivedCash - totalAmount;
     });
   }
-
-  // 顯示結帳對話框
-  _showCheckoutDialog(num totalAmount) {
+      // 檢查 totalAmount 是否有值
+  if (totalAmount == null || totalAmount <= 0) {
+    // 如果沒有值，顯示 SnackBar 並返回
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('金額無效，請檢查訂單金額')),
+    );
+    return; // 直接返回，不顯示對話框
+  }
     showDialog(
       context: context,
       builder: (context) {
@@ -169,14 +215,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           suffixIcon: SizedBox(), // 用空的 icon 佔位符避免外框變形
                         ),
                         onChanged: (value) {
-                          double cashInput = double.tryParse(value) ?? 0.0;
+                          int cashInput = int.tryParse(value) ?? 0;
                           setStateDialog(() {
                             receivedCash = cashInput;
                             change = receivedCash - totalAmount;
                           });
                         },
                       ),
-                      // "C" 按鈕放置在 TextField 右邊並且上下置中
                       Positioned(
                         right: 0,
                         top: 0,
@@ -188,8 +233,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             onPressed: () {
                               setStateDialog(() {
                                 cashController.clear(); // 清空 TextField
-                                receivedCash = 0.0; // 重置收到的現金
-                                change = 0.0; // 重置找零
+                                receivedCash = 0; // 重置收到的現金
+                                change = 0; // 重置找零
                               });
                             },
                           ),
@@ -319,7 +364,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         onPressed: () {
                           setStateDialog(() {
                             receivedCash = totalAmount; // 將收到的現金設為總金額
-                            change = 0.0; // 找零為0
+                            change = 0; // 找零為0
                             cashController.text =
                                 totalAmount.toString(); // 快捷金額為總金額
                           });
@@ -333,32 +378,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             },
           ),
           actions: [
-            // 確認結帳按鈕
             IconButton(
               icon: const Icon(
-                Icons.check_circle, // 更粗的勾勾圖標
+                Icons.check_circle,
                 color: Colors.green,
-                size: 56, // 增加大小
+                size: 56,
               ),
-              onPressed: () {
+              onPressed: () async {
                 if (receivedCash >= totalAmount) {
-                  // 結帳後打印送出的物件
                   var orderDetails = {
-                    'totalAmount': totalAmount,
-                    'receivedCash': receivedCash,
+                    'total_price': totalAmount,
+                    'received_cash': receivedCash,
                     'change': change,
-                    'paymentMethod': paymentMethod,
-                    'orderCreationTime': DateTime.now().toString(),
-                    'pickupMethod': pickupMethod,
-                    'orderStatus': 'success',
+                    'payment_method': paymentMethod,
+                    'pickup_method': pickupMethod,
+                    'order_status': 'success',
+                    'order_creation_time': DateTime.now().toString(),
                   };
+
                   print('送出的訂單物件: $orderDetails');
 
+                  int orderId = await DatabaseHelper().insertOrder(
+                    orderDetails,
+                  );
+                  print('成功儲存訂單 ID: $orderId');
+
+                  for (var order in orderItems) {
+                    var optionsJson = json.encode(
+                      order['options'],
+                    ); // options 是 HashMap，將它轉為 JSON 字串
+                    int menuItemId = await DatabaseHelper().getMenuItemIdByName(
+                      order['name'],
+                    );
+                    if (menuItemId != -1) {
+                      order.remove('name'); // 👈 移除不存在於 DB 表的欄位
+                      order.remove('selected'); // 👈 移除不存在於 DB 表的欄位
+                      order['options'] = optionsJson;
+                      order['menu_item_id'] = menuItemId;
+                    } else {
+                      print('無法找到菜單項目: ${order['name']}');
+                    }
+                  }
+
+                  await DatabaseHelper().insertOrderItems(orderId, orderItems);
+
+                  print('成功儲存訂單項目$orderItems');
                   setState(() {
-                    // 在這裡可以處理結帳的邏輯，例如將訂單狀態更新為已結帳
+                    orderItems.clear();
                   });
-                  Navigator.pop(context); // 關閉結帳對話框
-                  // 顯示結帳完成的訊息
+
+                  Navigator.pop(context);
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -380,22 +450,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   // 合併所有客製化選項，包括冰塊、糖度和環保杯
-  List<Map<String, dynamic>> options = [
-    {'name': '正常冰', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '微冰', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '少冰', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '去冰', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '常溫', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '溫熱', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '熱', 'price': 0, 'type': 'ice', 'selected': false},
-    {'name': '正常糖', 'price': 0, 'type': 'sugar', 'selected': false},
-    {'name': '少糖', 'price': 1, 'type': 'sugar', 'selected': false},
-    {'name': '微糖', 'price': 1, 'type': 'sugar', 'selected': false},
-    {'name': '無糖', 'price': 0, 'type': 'sugar', 'selected': false},
-    {'name': '環保杯', 'price': -5, 'type': 'eco_cup', 'selected': false}, // 環保杯選項
-    {'name': '珍珠', 'price': 10, 'type': 'topping', 'selected': false},
-    {'name': '椰果', 'price': 10, 'type': 'topping', 'selected': false},
-  ];
+  // List<Map<String, dynamic>> options = [
+  //   {'name': '正常冰', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '微冰', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '少冰', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '去冰', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '常溫', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '溫熱', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '熱', 'price': 0, 'type': 'ice', 'selected': false},
+  //   {'name': '正常糖', 'price': 0, 'type': 'sugar', 'selected': false},
+  //   {'name': '少糖', 'price': 1, 'type': 'sugar', 'selected': false},
+  //   {'name': '微糖', 'price': 1, 'type': 'sugar', 'selected': false},
+  //   {'name': '無糖', 'price': 0, 'type': 'sugar', 'selected': false},
+  //   {'name': '環保杯', 'price': -5, 'type': 'eco_cup', 'selected': false}, // 環保杯選項
+  //   {'name': '珍珠', 'price': 10, 'type': 'topping', 'selected': false},
+  //   {'name': '椰果', 'price': 10, 'type': 'topping', 'selected': false},
+  // ];
   Map<String, dynamic>? selectedOrderItem;
   List<Map<String, dynamic>> orderItems = [];
   int currentItemIndex = -1; // 用於追蹤當前選擇的飲料
@@ -940,20 +1010,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                                     return GestureDetector(
                                       onTap: () {
+                                        var selectedOrder = orderItems
+                                            .firstWhere(
+                                              (item) =>
+                                                  item['selected'] == true,
+                                              orElse:
+                                                  () =>
+                                                      <
+                                                        String,
+                                                        dynamic
+                                                      >{}, // 找不到時回傳 null
+                                            );
+
+                                        if (selectedOrder.isEmpty) {
+                                          print('⚠️ 沒有選中的飲料項目，無法設定客製化');
+                                          return;
+                                        }
                                         setState(() {
                                           option['selected'] =
                                               !option['selected'];
 
-                                          var selectedOrder = orderItems
-                                              .firstWhere(
-                                                (item) =>
-                                                    item['selected'] == true,
-                                              );
-
-                                          if (selectedOrder == false) {
-                                            print('⚠️ 沒有選中的飲料項目，無法設定客製化');
-                                            return;
-                                          }
+                                          // 如果有選到，繼續處理 selectedOrder
 
                                           String type = option['type'];
 
@@ -1234,20 +1311,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           maxLines: 1,
                                         ),
 
-                                      if (item['options'] != null &&
-                                          item['options'].isNotEmpty)
-                                        Text(
-                                          item['options']
-                                              .map<String>(
-                                                (option) =>
-                                                    '${option['name']} (+${option['price']})',
-                                              ) // 配料名稱和價格
-                                              .join(', '), // 用逗號分隔
-                                          style: const TextStyle(fontSize: 14),
-                                          overflow:
-                                              TextOverflow
-                                                  .ellipsis, // 如果超過最大寬度，顯示省略號
-                                        ),
+                                      // Inside your widget or method
+                                      Text(
+                                        (() {
+                                          final rawOptions = item['options'];
+                                          List<dynamic> options = [];
+
+                                          if (rawOptions is String) {
+                                            try {
+                                              options = jsonDecode(rawOptions);
+                                            } catch (e) {
+                                              print(
+                                                '⚠️ JSON decode failed: $e',
+                                              );
+                                              options = [];
+                                            }
+                                          } else if (rawOptions is List) {
+                                            options = rawOptions;
+                                          }
+
+                                          return options.isNotEmpty
+                                              ? options
+                                                  .map<String>(
+                                                    (option) =>
+                                                        '${option['name']} (+${option['price']})',
+                                                  )
+                                                  .join(', ')
+                                              : '';
+                                        })(),
+                                        style: const TextStyle(fontSize: 14),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ],
                                   ),
                                   // 顯示該飲料的價格

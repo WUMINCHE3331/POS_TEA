@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pos_system/screens/checkout_screen.dart';
-import 'database.dart';
+import 'DatabaseHelper.dart';
 
 void main() async {
     WidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:io';
+import 'dart:convert';
 
 class DatabaseHelper {
   static Database? _database;
@@ -10,7 +12,8 @@ class DatabaseHelper {
     if (_database != null) return _database!;
     print("初始化資料庫...");
     _database = await initDatabase();
-    print("資料庫連線成功！");  
+    print("資料庫連線成功！");
+
     return _database!;
   }
 
@@ -27,71 +30,143 @@ class DatabaseHelper {
 
         // 創建菜單表格
         await db.execute('''
-        CREATE TABLE IF NOT EXISTS menu (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT,
-          price REAL,
-          category TEXT
-        );
-        ''');
+          CREATE TABLE IF NOT EXISTS menu (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price INTEGER,
+            category TEXT
+          );
+          ''');
 
         // 創建訂單表格
         await db.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-          order_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          customer_name TEXT,
-          total_price REAL,
-          received_cash REAL,
-          change REAL,
-          payment_method TEXT,
-          pickup_method TEXT,
-          order_status TEXT,
-          order_creation_time TEXT,
-          status TEXT,
-          timestamp TEXT
-        );
-        ''');
+            CREATE TABLE IF NOT EXISTS orders (
+              order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              customer_name TEXT,
+              total_price INTEGER,
+              received_cash INTEGER,
+              change INTEGER,
+              payment_method TEXT,
+              pickup_method TEXT,
+              order_status TEXT,
+              order_creation_time TEXT,
+              status TEXT,
+              timestamp TEXT
+            );
+            ''');
+
+        // // 創建訂單項目表格
+        // await db.execute('''
+        // CREATE TABLE IF NOT EXISTS order_items (
+        //   order_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        //   order_id INTEGER,
+        //   menu_item_id INTEGER,
+        //   quantity INTEGER,
+        //   price INTEGER,
+        //   FOREIGN KEY(order_id) REFERENCES orders(order_id),
+        //   FOREIGN KEY(menu_item_id) REFERENCES menu(id)
+        // );
+        // ''');
 
         // 創建訂單項目表格
         await db.execute('''
-        CREATE TABLE IF NOT EXISTS order_items (
-          order_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          order_id INTEGER,
-          menu_item_id INTEGER,
-          quantity INTEGER,
-          price REAL,
-          FOREIGN KEY(order_id) REFERENCES orders(order_id),
-          FOREIGN KEY(menu_item_id) REFERENCES menu(id)
-        );
-        ''');
+  CREATE TABLE IF NOT EXISTS order_items (
+    order_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER,
+    menu_item_id INTEGER,
+    quantity INTEGER,
+    price INTEGER,
+    options TEXT,          -- 儲存為 JSON 格式的選項
+    ice TEXT,              -- 冰塊設定
+    sugar_level TEXT,      -- 糖度設定
+    eco_cup TEXT,          -- 是否選擇環保杯
+    FOREIGN KEY(order_id) REFERENCES orders(order_id),
+    FOREIGN KEY(menu_item_id) REFERENCES menu(id)
+  );
+''');
 
         // 創建選項表格
         await db.execute('''
-        CREATE TABLE IF NOT EXISTS options (
-          option_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT,
-          price REAL,
-          type TEXT,
-          selected BOOLEAN DEFAULT FALSE
-        );
-        ''');
+          CREATE TABLE IF NOT EXISTS options (
+            option_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price INTEGER,
+            type TEXT,
+            selected BOOLEAN DEFAULT false
+          );
+          ''');
 
-        // 創建訂單項目選項表
-        await db.execute('''
-        CREATE TABLE IF NOT EXISTS order_item_options (
-          order_item_id INTEGER,
-          option_id INTEGER,
-          selected BOOLEAN DEFAULT FALSE,
-          FOREIGN KEY(order_item_id) REFERENCES order_items(order_item_id),
-          FOREIGN KEY(option_id) REFERENCES options(option_id)
-        );
-        ''');
+        // // 創建訂單項目選項表
+        // await db.execute('''
+        // CREATE TABLE IF NOT EXISTS order_item_options (
+        //   order_item_id INTEGER,
+        //   option_id INTEGER,
+        //   selected BOOLEAN DEFAULT false,
+        //   FOREIGN KEY(order_item_id) REFERENCES order_items(order_item_id),
+        //   FOREIGN KEY(option_id) REFERENCES options(option_id)
+        // );
+        // ''');
 
         // 插入預設資料
         await _insertDefaultData(db);
       },
     );
   }
+
+//   Future<void> insertOrderWithItems(
+//     Map<String, dynamic> orderDetails, List<Map<String, dynamic>> orderItems) async {
+//   final db = await database;
+
+//   try {
+//     await db.transaction((txn) async {
+//       // 插入訂單，並獲得訂單 ID
+//       int orderId = await txn.insert('orders', orderDetails);
+//       print('訂單 ID: $orderId');
+
+//       // 迭代插入訂單項目
+//       for (var order in orderItems) {
+//         print('訂單項目 options: ${order['options']}');
+//         // 如果 options 是空的，設置為空列表或某個預設值
+//         if (order['options'] == null) {
+//           order['options'] = [];
+//         }
+        
+//         String optionsJson = json.encode(order['options']);
+//         print('optionsJson: $optionsJson');
+
+//         // 根據名稱找到對應的 menu_item_id
+//         int menuItemId = await getMenuItemIdByName(order['name']);
+//         print('菜單項目名稱: ${order['name']} 對應的 menu_item_id: $menuItemId');
+        
+//         if (menuItemId == -1) {
+//           // 如果找不到對應的菜單項目，拋出異常，這將導致事務回滾
+//           throw Exception('無法找到菜單項目: ${order['name']}');
+//         }
+
+//         // 移除不必要的欄位
+//         order.remove('name');
+//         order.remove('selected');
+
+//         // 將訂單項目和其他欄位準備好
+//         order['options'] = optionsJson;  // 將選項儲存為 JSON
+//         order['menu_item_id'] = menuItemId;
+//         order['order_id'] = orderId;  // 設置訂單 ID 關聯
+
+//         // 插入訂單項目
+//         await txn.insert('order_items', order);
+//       }
+//     });
+
+//     print('✅ 訂單與訂單項目成功儲存');
+//   } catch (e) {
+//     print('❌ 在交易過程中發生錯誤: $e');
+//     // 輸出更詳細的錯誤信息來幫助調試
+//     print('錯誤詳細資料: ${e.toString()}');
+//     throw e;  // 會觸發回滾
+//   }
+// }
+
+
 
   // 插入預設資料（只在資料庫為空時執行）
   Future<void> _insertDefaultData(Database db) async {
@@ -136,10 +211,56 @@ class DatabaseHelper {
     return await db.query('menu');
   }
 
-  // 插入訂單
+  // 獲取所有
+  Future<List<Map<String, dynamic>>> getOptions() async {
+    final db = await database;
+    return await db.query('options');
+  }
+
+  // 根據菜單名稱查找對應的 menu_item_id
+  Future<int> getMenuItemIdByName(String menuItemName) async {
+    final db = await database;
+
+    // 查詢菜單表格，根據菜單名稱過濾
+    var result = await db.query(
+      'menu',
+      where: 'name = ?',
+      whereArgs: [menuItemName],
+      limit: 1, // 只需要一條資料
+    );
+
+    if (result.isNotEmpty) {
+      // 返回對應菜單項目的 ID
+      return result.first['id'] as int;
+    }
+
+    // 如果找不到對應的菜單項目，則返回 -1 或適當的錯誤值
+    return -1;
+  }
+
   Future<int> insertOrder(Map<String, dynamic> order) async {
     final db = await database;
-    return await db.insert('orders', order);
+
+    // 插入訂單，並獲得生成的 order_id
+    int orderId = await db.insert('orders', order);
+
+    return orderId; // 返回插入的 order_id
+  }
+
+  Future<void> insertOrderItems(
+    int orderId,
+    List<Map<String, dynamic>> orderItems,
+  ) async {
+    final db = await database;
+
+    // 為每個訂單項目插入
+    for (var item in orderItems) {
+      // 將 order_id 加入每個訂單項目
+      item['order_id'] = orderId;
+
+      // 插入訂單項目
+      await db.insert('order_items', item);
+    }
   }
 
   // 插入訂單項目
@@ -165,10 +286,7 @@ class DatabaseHelper {
     final db = await database;
     await db.update(
       'orders',
-      {
-        'status': status,
-        'timestamp': DateTime.now().toIso8601String(),
-      },
+      {'status': status, 'timestamp': DateTime.now().toIso8601String()},
       where: 'order_id = ?',
       whereArgs: [orderId],
     );
