@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pos_system/DatabaseHelper.dart';
 import 'dart:convert';
-
+import 'app_drawer.dart'; // 匯入側邊欄元件
+import 'package:intl/intl.dart';
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -9,19 +10,51 @@ class CheckoutScreen extends StatefulWidget {
   _CheckoutScreenState createState() => _CheckoutScreenState();
 }
 
+bool _isLoading = true; // 預設為 loading 中
+
 class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Map<String, dynamic>> menuItems = []; // 這裡改為 List，而不是 Future
   List<Map<String, dynamic>> options = []; // 這裡改為 List，而不是 Future
   List<Map<String, dynamic>> filteredMenuItems = [];
+  TextEditingController discountController = TextEditingController();
   @override
   void initState() {
     super.initState();
-    // 讀取資料庫中的菜單項目
-    // 讀取資料庫中的菜單項目
-    // 初始化菜單資料並讀取資料庫中的菜單項目
-    _loadMenuItems();
-    _loadOptions();
+    _initializeData(); // 整合成一個 async 方法
   }
+String getTaiwanTimeNow() {
+  DateTime taiwanTime = DateTime.now().toUtc().add(Duration(hours: 8));
+  return DateFormat('yyyy-MM-dd HH:mm:ss').format(taiwanTime);
+}
+  void _initializeData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    await Future.wait([
+      _loadMenuItems(),
+      _loadOptions(),
+      _loadLatestOrderNumber(), // 加入單號的抓取
+    ]);
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  // 用來從資料庫抓取最新的訂單號
+  Future<void> _loadLatestOrderNumber() async {
+    String orderNumber = await DatabaseHelper().getLatestOrderNumber();
+
+    setState(() {
+      _orderNumber = orderNumber.toString(); // 儲存抓取到的訂單號
+    });
+  }
+
+  // String? orderNo; // 宣告變數
+  Future<String> fetchOrderNo() async {
+    String no = await DatabaseHelper().generateOrderNumber();
+    return no;
+  }
+
 
   // 異步加載菜單資料
   Future<void> _loadMenuItems() async {
@@ -52,46 +85,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             return {...item, 'selected': item['selected'] == 1 ? true : false};
           }).toList();
 
-      print('我是加載: ${options.toString()}');
+      // print('我是加載: ${options.toString()}');
     });
   }
 
   num calculateTotalQuantity(List<Map<String, dynamic>> orderItems) {
     return orderItems.fold(0, (sum, item) => sum + item['quantity']);
   }
-
-  // Future<void> addOrder(
-  //   Map<String, dynamic> order,
-  //   List<Map<String, dynamic>> orderItems,
-  //   List<Map<String, dynamic>> selectedOptions,
-  // ) async {
-  //   final db = await DatabaseHelper().database;
-
-  //   // 開始一個事務
-  //   await db.transaction((txn) async {
-  //     // 插入訂單資料到訂單表格
-  //     int orderId = await txn.insert('orders', order);
-
-  //     // 插入訂單項目
-  //     for (var item in orderItems) {
-  //       // 插入每一個訂單項目
-  //       item['order_id'] = orderId; // 設置訂單ID
-  //       await txn.insert('order_items', item);
-
-  //       // 插入每個訂單項目的選項（如冰塊、糖度等）
-  //       for (var option in selectedOptions) {
-  //         if (option['order_item_id'] == item['order_item_id']) {
-  //           // 插入每個選項
-  //           await txn.insert('order_item_options', {
-  //             'order_item_id': item['order_item_id'],
-  //             'option_id': option['option_id'],
-  //             'selected': option['selected'],
-  //           });
-  //         }
-  //       }
-  //     }
-  //   });
-  // }
 
   // 設置選中的訂單項目，並更新客製化UI
   void setSelectedOrderItem(Map<String, dynamic> item) {
@@ -105,14 +105,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // 整筆取消方法
   void clearAllOrders() {
-    setState(() {
-      // 清空所有訂單項目
-      orderItems.clear();
-    });
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('確認清除'),
+          content: const Text('您確定要清空所有訂單項目嗎？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // 關閉對話框，取消清除
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                // 確認後清空訂單項目
+                setState(() {
+                  orderItems.clear();
+                });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已清空所有訂單項目')),
-    );  
+                // 關閉對話框
+                Navigator.pop(context);
+
+                // 顯示操作結果的 SnackBar
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已清空所有訂單項目')));
+              },
+              child: const Text('確定'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void updateCustomizationUI(Map<String, dynamic>? selectedItem) {
@@ -159,31 +185,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String paymentMethod = '現金'; // 預設付款方式
   String pickupMethod = '外帶'; // 預設取餐方式為外帶
-
-
+  num? finalAmount; // 折扣後金額，null 表示尚未折扣
 
   // 顯示結帳對話框
   _showCheckoutDialog(num totalAmount) {
-      TextEditingController cashController = TextEditingController(text: '0'); // 現金輸入框控制器
-      
-  num receivedCash = 0; // 收到的現金
+    TextEditingController cashController = TextEditingController(
+      text: '0',
+    ); // 現金輸入框控制器
+
+    num receivedCash = 0; // 收到的現金
     num change = 0 - totalAmount;
-  // 計算找零
-  void calculateChange(num totalAmount) {
-    int cash = int.tryParse(cashController.text) ?? 0;
-    setState(() {
-      receivedCash = cash;
-      change = receivedCash - totalAmount;
-    });
-  }
-      // 檢查 totalAmount 是否有值
-  if (totalAmount == null || totalAmount <= 0) {
-    // 如果沒有值，顯示 SnackBar 並返回
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('金額無效，請檢查訂單金額')),
-    );
-    return; // 直接返回，不顯示對話框
-  }
+    // 檢查 totalAmount 是否有值
+    if (totalAmount <= 0) {
+      // 如果沒有值，顯示 SnackBar 並返回
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('金額無效，請檢查訂單金額')));
+      return; // 直接返回，不顯示對話框
+    }
     showDialog(
       context: context,
       builder: (context) {
@@ -273,6 +292,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               DropdownMenuItem(value: 'UB', child: Text('UB')),
                               DropdownMenuItem(value: 'FD', child: Text('FD')),
                               DropdownMenuItem(value: 'LA', child: Text('LA')),
+                              DropdownMenuItem(value: '外送', child: Text('外送')),
                             ],
                             onChanged: (value) {
                               setStateDialog(() {
@@ -291,12 +311,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             items: const [
                               DropdownMenuItem(value: '現金', child: Text('現金')),
                               DropdownMenuItem(
-                                value: '信用卡',
-                                child: Text('信用卡'),
+                                value: '街口支付',
+                                child: Text('街口支付'),
                               ),
                               DropdownMenuItem(
-                                value: '支付寶',
-                                child: Text('支付寶'),
+                                value: 'LinePay',
+                                child: Text('LinePay'),
+                              ),
+                              DropdownMenuItem(
+                                value: '信用卡',
+                                child: Text('信用卡'),
                               ),
                             ],
                             onChanged: (value) {
@@ -385,56 +409,107 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 size: 56,
               ),
               onPressed: () async {
+                String orderNo =
+                
+                    _orderNumber.isNotEmpty ? _orderNumber : '0001';
                 if (receivedCash >= totalAmount) {
                   var orderDetails = {
                     'total_price': totalAmount,
+                    'order_no': orderNo,
                     'received_cash': receivedCash,
                     'change': change,
                     'payment_method': paymentMethod,
                     'pickup_method': pickupMethod,
                     'order_status': 'success',
-                    'order_creation_time': DateTime.now().toString(),
+                    'order_creation_time': getTaiwanTimeNow() ,
                   };
 
-                  print('送出的訂單物件: $orderDetails');
+                  // print('送出的訂單物件: $orderDetails');
 
-                  int orderId = await DatabaseHelper().insertOrder(
-                    orderDetails,
-                  );
-                  print('成功儲存訂單 ID: $orderId');
+                  // int orderId = await DatabaseHelper().insertOrder(
+                  //   orderDetails,
+                  // );
+                  // print('成功儲存訂單 ID: $orderId');
+
+                  // for (var order in orderItems) {
+                  //   var optionsJson = json.encode(
+                  //     order['options'],
+                  //   ); // options 是 HashMap，將它轉為 JSON 字串
+                  //   int menuItemId = await DatabaseHelper().getMenuItemIdByName(
+                  //     order['name'],
+                  //   );
+                  //   if (menuItemId != -1) {
+                  //     order.remove('name'); // 👈 移除不存在於 DB 表的欄位
+                  //     order.remove('selected'); // 👈 移除不存在於 DB 表的欄位
+                  //     order['options'] = optionsJson;
+                  //     order['menu_item_id'] = menuItemId;
+                  //   } else {
+                  //     print('無法找到菜單項目: ${order['name']}');
+                  //   }
+                  // }
+                  // 準備 orderItems：轉換成 DB 格式
+                  List<Map<String, dynamic>> processedItems = [];
 
                   for (var order in orderItems) {
-                    var optionsJson = json.encode(
-                      order['options'],
-                    ); // options 是 HashMap，將它轉為 JSON 字串
+                    var optionsJson = json.encode(order['options']);
                     int menuItemId = await DatabaseHelper().getMenuItemIdByName(
                       order['name'],
                     );
+
                     if (menuItemId != -1) {
-                      order.remove('name'); // 👈 移除不存在於 DB 表的欄位
-                      order.remove('selected'); // 👈 移除不存在於 DB 表的欄位
-                      order['options'] = optionsJson;
-                      order['menu_item_id'] = menuItemId;
+                      processedItems.add({
+                        'menu_item_id': menuItemId,
+                        'quantity': order['quantity'],
+                        'price': order['price'],
+                        'options': optionsJson,
+                        'sugar_level': order['sugar_level'],
+                        'eco_cup': order['eco_cup'],
+                        'ice': order['ice'],
+                      });
+                      print((processedItems));
                     } else {
                       print('無法找到菜單項目: ${order['name']}');
                     }
                   }
 
-                  await DatabaseHelper().insertOrderItems(orderId, orderItems);
+                  // await DatabaseHelper().insertOrderItems(orderId, orderItems);
+                  // // ✅ 正確做法：先刷新單號，再更新畫面
+                  // String newOrderNo =
+                  //     await fetchOrderNo(); // 假設你改 fetchOrderNo() 為回傳 String
+                  // print('成功儲存訂單項目$orderItems');
+                  // setState(() {
+                  //   orderItems.clear();
+                  //   _orderNumber = newOrderNo;
+                  // });
+                  try {
+                    // ⛑️ 使用交易處理插入流程
+                    int orderId = await DatabaseHelper().insertOrderWithItems(
+                      orderDetails,
+                      processedItems,
+                    );
+                    print('成功儲存訂單及訂單項目，訂單 ID: $orderId');
 
-                  print('成功儲存訂單項目$orderItems');
-                  setState(() {
-                    orderItems.clear();
-                  });
+                    // 更新畫面
+                    String newOrderNo = await fetchOrderNo();
+                    setState(() {
+                      orderItems.clear();
+                      _orderNumber = newOrderNo;
+                    });
+                  } catch (e) {
+                    print('❌ 儲存訂單時發生錯誤: $e');
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('儲存訂單失敗：$e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
 
                   Navigator.pop(context);
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '結帳完成！總金額：\$${totalAmount.toStringAsFixed(2)}',
-                      ),
-                    ),
+                    SnackBar(content: Text('結帳完成！總金額：\$$totalAmount')),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -449,23 +524,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // 合併所有客製化選項，包括冰塊、糖度和環保杯
-  // List<Map<String, dynamic>> options = [
-  //   {'name': '正常冰', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '微冰', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '少冰', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '去冰', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '常溫', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '溫熱', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '熱', 'price': 0, 'type': 'ice', 'selected': false},
-  //   {'name': '正常糖', 'price': 0, 'type': 'sugar', 'selected': false},
-  //   {'name': '少糖', 'price': 1, 'type': 'sugar', 'selected': false},
-  //   {'name': '微糖', 'price': 1, 'type': 'sugar', 'selected': false},
-  //   {'name': '無糖', 'price': 0, 'type': 'sugar', 'selected': false},
-  //   {'name': '環保杯', 'price': -5, 'type': 'eco_cup', 'selected': false}, // 環保杯選項
-  //   {'name': '珍珠', 'price': 10, 'type': 'topping', 'selected': false},
-  //   {'name': '椰果', 'price': 10, 'type': 'topping', 'selected': false},
-  // ];
+  // 顯示側邊列
+  void _openDrawer() {
+    Scaffold.of(context).openDrawer();
+  }
+
   Map<String, dynamic>? selectedOrderItem;
   List<Map<String, dynamic>> orderItems = [];
   int currentItemIndex = -1; // 用於追蹤當前選擇的飲料
@@ -478,6 +541,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return total;
   }
 
+  String _orderNumber = '';
   bool isOptionSelected(
     Map<String, dynamic> option,
     Map<String, dynamic> selectedOrder,
@@ -541,7 +605,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       builder:
           (context) => AlertDialog(
             title: const Text('訂單完成'),
-            content: Text('總金額: \$${totalAmount.toStringAsFixed(2)}'),
+            content: Text('總金額: \$$totalAmount'),
             actions: [
               TextButton(
                 onPressed: () {
@@ -767,6 +831,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator()); // 或自訂的 loading UI
+    }
     // 將菜單按類別分組
     Map<String, List<Map<String, dynamic>>> groupedMenu = {};
     for (var item in menuItems) {
@@ -776,9 +843,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         groupedMenu[item['category']] = [item];
       }
     }
-
+    // List<String> performanceList = ['業績 A', '業績 B', '業績 C', '業績 D'];
     return Scaffold(
+      drawer: const AppDrawer(), 
       // appBar: AppBar(title: const Text('POS 結帳系統')),
+      // 設置側邊列
+      // drawer: Drawer(
+      //   child: ListView(
+      //     padding: EdgeInsets.zero,
+      //     children: [
+      //       // 側邊列的頭部
+      //       DrawerHeader(
+      //         child: Text(
+      //           '業績列表',
+      //           style: TextStyle(color: Colors.white, fontSize: 24),
+      //         ),
+      //         decoration: BoxDecoration(color: Colors.brown),
+      //       ),
+      //       // 顯示硬編碼的業績列表
+      //       ...performanceList.map((item) {
+      //         return ListTile(
+      //           title: Text(item),
+      //           onTap: () {
+      //             // 點擊業績項目後的操作
+      //             Navigator.pop(context); // 關閉側邊列
+      //           },
+      //         );
+      //       }).toList(),
+      //     ],
+      //   ),
+      // ),
       body: Row(
         children: [
           // 左側菜單區域
@@ -840,12 +934,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ), // 白色字體
                       ),
                       Text(
-                        '單號: 123456789',
-                        style: TextStyle(
+                        _orderNumber.isNotEmpty
+                            ? '單號: $_orderNumber'
+                            : '載入中...',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
-                        ), // 白色字體
+                        ),
                       ),
                     ],
                   ),
@@ -853,7 +949,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 // const SizedBox(height: 10),
                 // 顯示菜單區域：橫向滑動顯示
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(5),
                   decoration: const BoxDecoration(
                     color: Colors.orangeAccent,
                     borderRadius: BorderRadius.only(
@@ -930,7 +1026,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 Expanded(
                   child: Container(
-                    constraints: BoxConstraints(maxHeight: 500), // 設置最大高度
+                    constraints: BoxConstraints(maxHeight: 300), // 設置最大高度
                     // margin: EdgeInsets.zero,
                     child: Column(
                       children: [
@@ -939,9 +1035,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           child: GridView.builder(
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 4, // 每行顯示4個項目
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
+                                  crossAxisCount: 5, // 每行顯示4個項目
+                                  crossAxisSpacing: 5,
+                                  mainAxisSpacing: 5,
                                   childAspectRatio: 2.5,
                                 ),
                             itemCount: filteredMenuItems.length,
@@ -987,7 +1083,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                         ),
                         Container(
-                          height: 200, // 設置客製化區塊的高度為200
+                          height: 300, // 設置客製化區塊的高度為200
                           width: double.infinity, // 設置寬度為100%
                           padding: EdgeInsets.zero,
 
@@ -999,10 +1095,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 child: GridView.builder(
                                   gridDelegate:
                                       SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 4, // 每行顯示4個選項
-                                        crossAxisSpacing: 10, // 交叉間距
-                                        mainAxisSpacing: 10, // 主軸間距
-                                        childAspectRatio: 2.6, // 保持每個選項為正方形
+                                        crossAxisCount: 6, // 每行顯示4個選項
+                                        crossAxisSpacing: 5, // 交叉間距
+                                        mainAxisSpacing: 5, // 主軸間距
+                                        childAspectRatio: 2, // 保持每個選項為正方形
                                       ),
                                   itemCount: options.length, // 項目數量
                                   itemBuilder: (context, index) {
@@ -1086,25 +1182,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             }
                                           }
 
-                                          // 印出目前的訂單狀態
-                                          print(
-                                            '🎯 目前作用在飲料: ${selectedOrder['name']}',
-                                          );
-                                          print(
-                                            '🧊 冰量: ${selectedOrder['ice']}',
-                                          );
-                                          print(
-                                            '🍬 甜度: ${selectedOrder['sugar_level']}',
-                                          );
-                                          print(
-                                            '🛍️ 是否環保杯: ${selectedOrder['eco_cup']}',
-                                          );
-                                          print(
-                                            '➕ 加料: ${selectedOrder['options'].map((e) => e['name'])}',
-                                          );
-                                          print(
-                                            '💰 總價: ${selectedOrder['price']}',
-                                          );
+                                          // // 印出目前的訂單狀態
+                                          // print(
+                                          //   '🎯 目前作用在飲料: ${selectedOrder['name']}',
+                                          // );
+                                          // print(
+                                          //   '🧊 冰量: ${selectedOrder['ice']}',
+                                          // );
+                                          // print(
+                                          //   '🍬 甜度: ${selectedOrder['sugar_level']}',
+                                          // );
+                                          // print(
+                                          //   '🛍️ 是否環保杯: ${selectedOrder['eco_cup']}',
+                                          // );
+                                          // print(
+                                          //   '➕ 加料: ${selectedOrder['options'].map((e) => e['name'])}',
+                                          // );
+                                          // print(
+                                          //   '💰 總價: ${selectedOrder['price']}',
+                                          // );
                                         });
                                       },
 
@@ -1166,35 +1262,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
 
                 // const Divider(),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20), // 加大底部空間
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Builder(
+                        builder: (BuildContext context) {
+                          return IconButton(
+                            icon: const Icon(Icons.menu),
+                            onPressed: () {
+                              // 使用 Builder 的 context 來打開側邊列
+                              Scaffold.of(context).openDrawer();
+                            },
+                          );  
+                        },
+                      ),
 
-                // 顯示結帳按鈕
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed:
-                          () => _showCheckoutDialog(totalAmount), // 包裝成匿名函
-                      child: const Text('結帳'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _quantityRevise,
-                      child: const Text('數量更正'),
-                    ),
-                    // 取消按鈕
-                    ElevatedButton(
-                      onPressed: cancelSelectedOrder, // 調用取消方法
-                      child: const Text('單筆取消'),
-                    ),
-                    ElevatedButton(
-                      onPressed: clearAllOrders, // 呼叫整筆取消方法
-                      child: const Text('整筆取消'),
-                    ),
-
-                    ElevatedButton(
-                      onPressed: _placeOrder,
-                      child: const Text('開啟錢櫃'),
-                    ),
-                  ],
+                      ElevatedButton.icon(
+                        onPressed: () => _showCheckoutDialog(totalAmount),
+                        icon: const Icon(
+                          Icons.payment,
+                          size: 24,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
+                          '結帳',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _quantityRevise,
+                        icon: const Icon(
+                          Icons.edit,
+                          size: 24,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
+                          '數量更正',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: cancelSelectedOrder,
+                        icon: const Icon(
+                          Icons.cancel,
+                          size: 24,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
+                          '單筆取消',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: clearAllOrders,
+                        icon: const Icon(
+                          Icons.delete_sweep,
+                          size: 24,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
+                          '整筆取消',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _placeOrder,
+                        icon: const Icon(
+                          Icons.lock_open,
+                          size: 24,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
+                          '開啟錢櫃',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1310,38 +1456,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           overflow: TextOverflow.ellipsis,
                                           maxLines: 1,
                                         ),
+                                      (item['options'] != null &&
+                                              item['options'].isNotEmpty)
+                                          ? Text(
+                                            (() {
+                                              final rawOptions =
+                                                  item['options'];
+                                              List<dynamic> options = [];
 
-                                      // Inside your widget or method
-                                      Text(
-                                        (() {
-                                          final rawOptions = item['options'];
-                                          List<dynamic> options = [];
+                                              // 解析 options 字串為 List
+                                              if (rawOptions is String) {
+                                                try {
+                                                  options = jsonDecode(
+                                                    rawOptions,
+                                                  );
+                                                } catch (e) {
+                                                  print(
+                                                    '⚠️ JSON decode 失敗: $e',
+                                                  );
+                                                  options = [];
+                                                }
+                                              } else if (rawOptions is List) {
+                                                options = rawOptions;
+                                              }
 
-                                          if (rawOptions is String) {
-                                            try {
-                                              options = jsonDecode(rawOptions);
-                                            } catch (e) {
-                                              print(
-                                                '⚠️ JSON decode failed: $e',
-                                              );
-                                              options = [];
-                                            }
-                                          } else if (rawOptions is List) {
-                                            options = rawOptions;
-                                          }
-
-                                          return options.isNotEmpty
-                                              ? options
-                                                  .map<String>(
-                                                    (option) =>
-                                                        '${option['name']} (+${option['price']})',
-                                                  )
-                                                  .join(', ')
-                                              : '';
-                                        })(),
-                                        style: const TextStyle(fontSize: 14),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                              return options.isNotEmpty
+                                                  ? options
+                                                      .map<String>(
+                                                        (option) =>
+                                                            '${option['name']} (+${option['price']})',
+                                                      )
+                                                      .join(', ')
+                                                  : ''; // 若 options 為空，顯示空字串
+                                            })(),
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                            ),
+                                            overflow:
+                                                TextOverflow
+                                                    .ellipsis, // 超出顯示省略號
+                                          )
+                                          : SizedBox.shrink(), // 如果 options 為空，則不顯示 Text 並且不佔用空間
                                     ],
                                   ),
                                   // 顯示該飲料的價格
@@ -1369,9 +1524,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      ElevatedButton(
-                        onPressed: _placeOrder,
-                        child: const Text('確認結帳'),
+                      ElevatedButton.icon(
+                        onPressed: () => _showCheckoutDialog(totalAmount),
+                        icon: const Icon(
+                          Icons.payment,
+                          size: 24,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
+                          '結帳',
+                          style: TextStyle(fontSize: 16, color: Colors.black),
+                        ),
                       ),
                     ],
                   ),

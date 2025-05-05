@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pos_system/screens/checkout_screen.dart';
 import 'DatabaseHelper.dart';
-
+import './screens/performance_screen.dart';
 void main() async {
     WidgetsFlutterBinding.ensureInitialized();
   var dbHelper = DatabaseHelper();
@@ -15,7 +15,11 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    
     return MaterialApp(
+      routes: {
+  '/performance': (context) => const PerformanceScreen(),
+},
       title: 'POS 系統',
       theme: ThemeData(
         primarySwatch: Colors.blue,
