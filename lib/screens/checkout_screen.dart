@@ -23,7 +23,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _initializeData(); // 整合成一個 async 方法
   }
 String getTaiwanTimeNow() {
-  DateTime taiwanTime = DateTime.now().toUtc().add(Duration(hours: 8));
+  DateTime taiwanTime = DateTime.now().toLocal();
   return DateFormat('yyyy-MM-dd HH:mm:ss').format(taiwanTime);
 }
   void _initializeData() async {
