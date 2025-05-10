@@ -4,6 +4,7 @@ import 'package:pos_system/DatabaseHelper.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'app_drawer.dart'; // 匯入側邊欄元件
+
 class OrderListScreen extends StatefulWidget {
   const OrderListScreen({super.key});
 
@@ -75,7 +76,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
   void _onPageSizeChanged(int? newLimit) {
     setState(() {
       limit = newLimit ?? 10;
-      print('新的頁數${newLimit}');
+      print('新的頁數$newLimit');
       currentPage = 1; // 每次改變頁面大小時，都設為第一頁
       offset = 0; // 重新設置偏移量為 0
       _fetchPerformanceData(); // 重新獲取資料
@@ -100,7 +101,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
         startDate,
         endDate,
       );
-      print('作廢單數跟金額${InValidOrder}');
+      print('作廢單數跟金額$InValidOrder');
 
       orderlist = await DatabaseHelper().getOrderWithItems(
         startDate: startDateTime,
@@ -111,10 +112,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
       print('實際的訂單長度${orderlist.length}');
       // 計算總頁數，至少為 1
       totalPages = max(1, (orderCount / limit).ceil());
-      print('訂單列表${orderlist}');
+      print('訂單列表$orderlist');
 
       orderCount = await DatabaseHelper().getOrderCount(startDate, endDate);
-      print('訂單總數${orderCount}');
+      print('訂單總數$orderCount');
 
       hourlyData = await DatabaseHelper().getHourlySales(
         startDateTime,
@@ -125,7 +126,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
         startDateTime,
         endDateTime,
       );
-      print('總業績${totalSalesResult}');
+      print('總業績$totalSalesResult');
     } finally {
       setState(() {
         isLoading = false;
@@ -176,12 +177,11 @@ class _OrderListScreenState extends State<OrderListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       appBar: AppBar(title: const Text('訂單列表查詢')),
-            drawer: const AppDrawer(), 
+      drawer: const AppDrawer(),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
-          horizontal: MediaQuery.of(context).size.width * 0.2,
+          horizontal: MediaQuery.of(context).size.width * 0.1,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +209,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                   Text(
                     '選擇日期: ${DateFormat('yyyy-MM-dd').format(selectedStartDate)} 至 ${DateFormat('yyyy-MM-dd').format(selectedEndDate)}',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
                     ),
@@ -217,8 +217,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
                   ),
                   const SizedBox(height: 8), // 間距
                   Text(
-                    '總業績: \$${totalSales}  總筆數:${orderCount} 作廢筆數:${InvalidOrderCount} 作廢金額\$${InvalidOrderMoney}',
-                    style: const TextStyle(fontSize: 16, letterSpacing: 0.5),
+                    '總業績: \$$totalSales  總筆數:$orderCount 作廢筆數:$InvalidOrderCount 作廢金額\$$InvalidOrderMoney',
+                    style: const TextStyle(fontSize: 20, letterSpacing: 0.5),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -267,9 +267,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                                               order['order_id'];
                                           final items =
                                               order['items'] as List<dynamic>;
-                                          String time = formattedTime(
-                                            order['order_creation_time'],
-                                          ); // 將 JSON 字符串解析為 Dart List
+                                          // String time = formattedTime(
+                                          //   order['order_creation_time'],
+                                          // ); // 將 JSON 字符串解析為 Dart List
 
                                           return Column(
                                             children: [
@@ -305,103 +305,186 @@ class _OrderListScreenState extends State<OrderListScreen> {
                                                           order['order_no'],
                                                           style:
                                                               const TextStyle(
-                                                                fontSize: 14,
+                                                                fontSize: 20,
                                                               ),
                                                           overflow:
                                                               TextOverflow
                                                                   .ellipsis,
                                                         ),
                                                       ),
-                                                      Text(
-                                                        '\$${order['total_price']}',
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        '${time}',
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        '${order['order_status']}',
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                        ),
+                                                      Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          SizedBox(
+                                                            width: 80, // 金額欄位寬度
+                                                            child: Text(
+                                                              '\$${order['total_price']}',
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        20,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          SizedBox(
+                                                            width:
+                                                                80, // 付款方式欄位寬度
+                                                            child: Text(
+                                                              order['payment_method'],
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        20,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          SizedBox(
+                                                            width:
+                                                                80, // 取餐方式欄位寬度
+                                                            child: Text(
+                                                              order['pickup_method'],
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        20,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          SizedBox(
+                                                            width:
+                                                                80, // 訂單狀態欄位寬度
+                                                            child: Text(
+                                                              '${order['order_status']}',
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        20,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ],
                                                   ),
                                                 ),
                                               ),
-                                              if (isExpanded)
-                                                Column(
-                                                  children:
-                                                      items.map((item) {
-                                                        List<dynamic>
-                                                        optionsList =
-                                                            item['options'] !=
-                                                                    null
-                                                                ? jsonDecode(
-                                                                  item['options'],
-                                                                ) // 解析 options 字符串
-                                                                : []; // 如果 options 為 null 則設為空列表
-                                                        // 預設空字串
-                                                        String optionNames = '';
-                                                        // 檢查 optionsList 是否為空
-
-                                                        if (optionsList
-                                                            .isNotEmpty) {
-                                                          // 提取選項名稱
-                                                          List<String> names =
-                                                              optionsList
-                                                                  .map(
-                                                                    (option) =>
-                                                                        option['name']
-                                                                            as String,
-                                                                  )
-                                                                  .toList();
-
-                                                          // 組合為一行字串
-                                                          optionNames = names
-                                                              .join(' ');
-                                                        }
-
-                                                        return Padding(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                vertical: 4.0,
+                                              Column(
+                                                children: [
+                                                  if (isExpanded) ...[
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Text(
+                                                              '實收 \$${order['received_cash']}',
+                                                              style: const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                color:
+                                                                    Colors
+                                                                        .black,
                                                               ),
-                                                          child: Row(
-                                                            children: [
-                                                              Expanded(
-                                                                child: Text(
-                                                                  '${item['menu_name']} x${item['quantity']}${optionNames.isNotEmpty ? ' $optionNames' : ''}',
-                                                                  style:
-                                                                      const TextStyle(
-                                                                        fontSize:
-                                                                            13,
-                                                                      ),
-                                                                ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 12,
+                                                            ),
+                                                            Text(
+                                                              '找零 \$${order['change']}',
+                                                              style: const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                color:
+                                                                    Colors
+                                                                        .black,
                                                               ),
-                                                              Text(
-                                                                '\$${item['price']}',
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        Text(
+                                                          order['order_creation_time'],
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color:
+                                                                    Colors
+                                                                        .black,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    // const SizedBox(height: 10),
+                                                    ...items.map((item) {
+                                                      List<dynamic>
+                                                      optionsList =
+                                                          item['options'] !=
+                                                                  null
+                                                              ? jsonDecode(
+                                                                item['options'],
+                                                              )
+                                                              : [];
+                                                      String optionNames = '';
+                                                      if (optionsList
+                                                          .isNotEmpty) {
+                                                        List<String> names =
+                                                            optionsList
+                                                                .map(
+                                                                  (option) =>
+                                                                      option['name']
+                                                                          as String,
+                                                                )
+                                                                .toList();
+                                                        optionNames = names
+                                                            .join(' ');
+                                                      }
+
+                                                      return Padding(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 4.0,
+                                                            ),
+                                                        child: Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                '${item['menu_name']} x${item['quantity']}${optionNames.isNotEmpty ? ' $optionNames' : ''} ${item['sugar_level']}${item['ice']}',
                                                                 style:
                                                                     const TextStyle(
                                                                       fontSize:
-                                                                          13,
+                                                                          20,
                                                                     ),
                                                               ),
-                                                            ],
-                                                          ),
-                                                        );
-                                                      }).toList(),
-                                                ),
+                                                            ),
+                                                            Text(
+                                                              '\$${item['price']}',
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        20,
+                                                                  ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    }).toList(),
+                                                  ],
+                                                ],
+                                              ),
                                             ],
                                           );
-                                        }).toList(),
+                                        }),
                                       ],
                                     ),
                                   ),
@@ -413,42 +496,50 @@ class _OrderListScreenState extends State<OrderListScreen> {
                       ],
                     ),
 
-                   Stack(
-  children: [
-    // 中間絕對置中的分頁控制
-    Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _previousPage,
-          ),
-          Text('第 $currentPage 頁 / $totalPages 頁'),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward),
-            onPressed: _nextPage,
-          ),
-        ],
-      ),
-    ),
+                    Stack(
+                      children: [
+                        // 中間絕對置中的分頁控制
+                        Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_back),
+                                onPressed: _previousPage,
+                              ),
+                              Text('第 $currentPage 頁 / $totalPages 頁'),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_forward),
+                                onPressed: _nextPage,
+                              ),
+                            ],
+                          ),
+                        ),
 
-    // 右側的下拉選單固定靠右
-    Positioned(
-      right: 0,
-      child: DropdownButton<int>(
-        value: limit,
-        items: const [
-          DropdownMenuItem(value: 10, child: Text('10 筆/頁')),
-          DropdownMenuItem(value: 20, child: Text('20 筆/頁')),
-          DropdownMenuItem(value: 50, child: Text('50 筆/頁')),
-        ],
-        onChanged: _onPageSizeChanged,
-      ),
-    ),
-  ],
-)
-
+                        // 右側的下拉選單固定靠右
+                        Positioned(
+                          right: 0,
+                          child: DropdownButton<int>(
+                            value: limit,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 10,
+                                child: Text('10 筆/頁'),
+                              ),
+                              DropdownMenuItem(
+                                value: 20,
+                                child: Text('20 筆/頁'),
+                              ),
+                              DropdownMenuItem(
+                                value: 50,
+                                child: Text('50 筆/頁'),
+                              ),
+                            ],
+                            onChanged: _onPageSizeChanged,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
           ],

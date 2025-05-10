@@ -3,7 +3,6 @@ import 'package:pos_system/screens/checkout_screen.dart';
 import 'DatabaseHelper.dart';
 import './screens/performance_screen.dart';
 import './screens/orderlist_screen.dart';
-import './screens/checkout_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

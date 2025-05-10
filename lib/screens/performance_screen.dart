@@ -56,21 +56,21 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         startDateTime,
         endDateTime,
       );
-      print('作廢單數跟金額${InValidOrder}');
+      print('作廢單數跟金額$InValidOrder');
       orderCount = await DatabaseHelper().getOrderCount(startDate, endDate);
-      print('訂單總數${orderCount}');
+      print('訂單總數$orderCount');
 
       hourlyData = await DatabaseHelper().getHourlySales(
         startDateTime,
         endDateTime,
       );
-      print('每小時業績${hourlyData}');
+      print('每小時業績$hourlyData');
 
       totalSalesResult = await DatabaseHelper().getTotalSales(
         startDateTime,
         endDateTime,
       );
-      print('總業績${totalSalesResult}');
+      print('總業績$totalSalesResult');
       pickMethods = await DatabaseHelper().fetchPickupMethodCount(
         startDateTime,
         endDateTime,
@@ -79,7 +79,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         startDateTime,
         endDateTime,
       );
-      print('我是產品peramount${productSales}');
+      print('我是產品peramount$productSales');
       paymentMethodStats = await DatabaseHelper().getSalesByPaymentMethod(
         startDateTime,
         endDateTime,
@@ -166,7 +166,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   Text(
                     '選擇日期: ${DateFormat('yyyy-MM-dd').format(selectedStartDate)} 至 ${DateFormat('yyyy-MM-dd').format(selectedEndDate)}',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
                     ),
@@ -174,8 +174,8 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   ),
                   const SizedBox(height: 8), // 間距
                   Text(
-                    '總業績: \$${totalSales}  總筆數:${orderCount} 作廢筆數:${InvalidOrderCount} 作廢金額\$${InvalidOrderMoney}',
-                    style: const TextStyle(fontSize: 16, letterSpacing: 0.5),
+                    '總業績: \$$totalSales  總筆數:$orderCount 作廢筆數:$InvalidOrderCount 作廢金額\$$InvalidOrderMoney',
+                    style: const TextStyle(fontSize: 20, letterSpacing: 0.5),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -234,7 +234,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                 child: const Text(
                                                   '產品銷售統計',
                                                   style: TextStyle(
-                                                    fontSize: 16,
+                                                    fontSize: 24,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
@@ -269,7 +269,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                               style:
                                                                   const TextStyle(
                                                                     fontSize:
-                                                                        14,
+                                                                        20,
                                                                   ),
                                                               overflow:
                                                                   TextOverflow
@@ -280,7 +280,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                             'x${product['total_quantity']}',
                                                             style:
                                                                 const TextStyle(
-                                                                  fontSize: 14,
+                                                                  fontSize: 20,
                                                                 ),
                                                           ),
                                                           const SizedBox(
@@ -290,7 +290,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                             '\$${product['total_sales'] ?? 0}',
                                                             style:
                                                                 const TextStyle(
-                                                                  fontSize: 14,
+                                                                  fontSize: 20,
                                                                 ),
                                                           ),
                                                         ],
@@ -301,7 +301,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                     ), // 行距
                                                   ],
                                                 );
-                                              }).toList(),
+                                              }),
                                             ],
                                           ),
                                         ],
@@ -310,17 +310,14 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                   ),
                                   const SizedBox(width: 16),
 
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey,
-                                      ), // 外框邊線
-                                      borderRadius: BorderRadius.circular(
-                                        8,
-                                      ), // 圓角
-                                    ),
-                                    padding: const EdgeInsets.all(12), // 內距
-                                    child: Expanded(
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(12),
+
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -329,7 +326,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                             child: const Text(
                                               '業績/小時',
                                               style: TextStyle(
-                                                fontSize: 16,
+                                                fontSize: 24,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -360,11 +357,11 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                       Expanded(
                                                         child: Text(
                                                           '${hourlyData['hour']} 時'
-                                                                  ?.toString() ??
+                                                                  .toString() ??
                                                               '未知業績小時',
                                                           style:
                                                               const TextStyle(
-                                                                fontSize: 14,
+                                                                fontSize: 20,
                                                               ),
                                                           overflow:
                                                               TextOverflow
@@ -374,7 +371,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                       Text(
                                                         '\$${hourlyData['total_sales'] ?? 0}',
                                                         style: const TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize: 20,
                                                         ),
                                                       ),
                                                     ],
@@ -385,24 +382,22 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                 ), // 行間距
                                               ],
                                             );
-                                          }).toList(),
+                                          }),
                                         ],
                                       ),
                                     ),
                                   ),
+
                                   const SizedBox(width: 16),
 
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey,
-                                      ), // 外框邊線
-                                      borderRadius: BorderRadius.circular(
-                                        8,
-                                      ), // 圓角
-                                    ),
-                                    padding: const EdgeInsets.all(12), // 內距
-                                    child: Expanded(
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(12),
+
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -411,7 +406,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                             child: const Text(
                                               '支付統計',
                                               style: TextStyle(
-                                                fontSize: 16,
+                                                fontSize: 24,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -446,7 +441,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                               '未知付款方式',
                                                           style:
                                                               const TextStyle(
-                                                                fontSize: 14,
+                                                                fontSize: 20,
                                                               ),
                                                           overflow:
                                                               TextOverflow
@@ -456,14 +451,14 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                       Text(
                                                         'x${payment['total_count'] ?? 0}',
                                                         style: const TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize: 20,
                                                         ),
                                                       ),
                                                       const SizedBox(width: 8),
                                                       Text(
                                                         '\$${payment['total_sales'] ?? 0}',
                                                         style: const TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize: 20,
                                                         ),
                                                       ),
                                                     ],
@@ -474,24 +469,22 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                 ), // 行間距
                                               ],
                                             );
-                                          }).toList(),
+                                          }),
                                         ],
                                       ),
                                     ),
                                   ),
+
                                   const SizedBox(width: 16),
 
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey,
-                                      ), // 外框邊線
-                                      borderRadius: BorderRadius.circular(
-                                        8,
-                                      ), // 圓角
-                                    ),
-                                    padding: const EdgeInsets.all(12), // 內距
-                                    child: Expanded(
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(12),
+
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -500,7 +493,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                             child: const Text(
                                               '外帶統計',
                                               style: TextStyle(
-                                                fontSize: 16,
+                                                fontSize: 24,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -535,7 +528,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                               '未知付款方式',
                                                           style:
                                                               const TextStyle(
-                                                                fontSize: 14,
+                                                                fontSize: 20,
                                                               ),
                                                           overflow:
                                                               TextOverflow
@@ -545,14 +538,14 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                       Text(
                                                         'x${pickmethods['method_count'] ?? 0}',
                                                         style: const TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize: 20,
                                                         ),
                                                       ),
                                                       const SizedBox(width: 8),
                                                       Text(
                                                         '\$${pickmethods['total_amount'] ?? 0}',
                                                         style: const TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize: 20,
                                                         ),
                                                       ),
                                                     ],
@@ -563,7 +556,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                 ), // 行間距
                                               ],
                                             );
-                                          }).toList(),
+                                          }),
                                         ],
                                       ),
                                     ),

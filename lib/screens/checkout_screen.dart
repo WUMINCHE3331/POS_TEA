@@ -311,8 +311,8 @@ String getTaiwanTimeNow() {
                             items: const [
                               DropdownMenuItem(value: '現金', child: Text('現金')),
                               DropdownMenuItem(
-                                value: '街口支付',
-                                child: Text('街口支付'),
+                                value: '街口',
+                                child: Text('街口'),
                               ),
                               DropdownMenuItem(
                                 value: 'LinePay',
@@ -1025,7 +1025,7 @@ String getTaiwanTimeNow() {
                           ),
                         ),
                         Container(
-                          height: 300, // 設置客製化區塊的高度為200
+                          height: 260, // 設置客製化區塊的高度為200
                           width: double.infinity, // 設置寬度為100%
                           padding: EdgeInsets.zero,
 
@@ -1221,18 +1221,18 @@ String getTaiwanTimeNow() {
                         },
                       ),
 
-                      ElevatedButton.icon(
-                        onPressed: () => _showCheckoutDialog(totalAmount),
-                        icon: const Icon(
-                          Icons.payment,
-                          size: 24,
-                          color: Colors.black,
-                        ),
-                        label: const Text(
-                          '結帳',
-                          style: TextStyle(fontSize: 16, color: Colors.black),
-                        ),
-                      ),
+                      // ElevatedButton.icon(
+                      //   onPressed: () => _showCheckoutDialog(totalAmount),
+                      //   icon: const Icon(
+                      //     Icons.payment,
+                      //     size: 24,
+                      //     color: Colors.black,
+                      //   ),
+                      //   label: const Text(
+                      //     '結帳',
+                      //     style: TextStyle(fontSize: 16, color: Colors.black),
+                      //   ),
+                      // ),
                       ElevatedButton.icon(
                         onPressed: _quantityRevise,
                         icon: const Icon(
@@ -1290,7 +1290,7 @@ String getTaiwanTimeNow() {
 
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(0, 25, 20, 5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1456,29 +1456,30 @@ String getTaiwanTimeNow() {
                   ),
 
                   const Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '總金額: \$$totalAmount',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 32), 
+                  
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        
+                        ElevatedButton.icon(
+                          onPressed: () => _showCheckoutDialog(totalAmount),
+                          icon: const Icon(
+                            Icons.payment,
+                            size: 30,
+                            color: Colors.black,
+                          ),
+                          label: const Text(
+                            '結帳',
+                            style: TextStyle(fontSize: 20, color: Colors.black),
+                          ),style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.yellow[200], // 按鈕背景顏色
+   
+  ),
                         ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showCheckoutDialog(totalAmount),
-                        icon: const Icon(
-                          Icons.payment,
-                          size: 24,
-                          color: Colors.black,
-                        ),
-                        label: const Text(
-                          '結帳',
-                          style: TextStyle(fontSize: 16, color: Colors.black),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
