@@ -183,8 +183,7 @@ String getTaiwanTimeNow() {
     }
   }
 
-  String paymentMethod = '現金'; // 預設付款方式
-  String pickupMethod = '外帶'; // 預設取餐方式為外帶
+
   num? finalAmount; // 折扣後金額，null 表示尚未折扣
 
   // 顯示結帳對話框
@@ -192,7 +191,8 @@ String getTaiwanTimeNow() {
     TextEditingController cashController = TextEditingController(
       text: '0',
     ); // 現金輸入框控制器
-
+  String paymentMethod = '現金'; // 預設付款方式
+  String pickupMethod = '外帶'; // 預設取餐方式為外帶
     num receivedCash = 0; // 收到的現金
     num change = 0 - totalAmount;
     // 檢查 totalAmount 是否有值
@@ -292,7 +292,7 @@ String getTaiwanTimeNow() {
                               DropdownMenuItem(value: 'UB', child: Text('UB')),
                               DropdownMenuItem(value: 'FD', child: Text('FD')),
                               DropdownMenuItem(value: 'LA', child: Text('LA')),
-                              DropdownMenuItem(value: '外送', child: Text('外送')),
+                              // DropdownMenuItem(value: '外送', child: Text('外送')),
                             ],
                             onChanged: (value) {
                               setStateDialog(() {
@@ -420,33 +420,10 @@ String getTaiwanTimeNow() {
                     'change': change,
                     'payment_method': paymentMethod,
                     'pickup_method': pickupMethod,
-                    'order_status': 'success',
+                    'order_status': '成功',
                     'order_creation_time': getTaiwanTimeNow() ,
                   };
 
-                  // print('送出的訂單物件: $orderDetails');
-
-                  // int orderId = await DatabaseHelper().insertOrder(
-                  //   orderDetails,
-                  // );
-                  // print('成功儲存訂單 ID: $orderId');
-
-                  // for (var order in orderItems) {
-                  //   var optionsJson = json.encode(
-                  //     order['options'],
-                  //   ); // options 是 HashMap，將它轉為 JSON 字串
-                  //   int menuItemId = await DatabaseHelper().getMenuItemIdByName(
-                  //     order['name'],
-                  //   );
-                  //   if (menuItemId != -1) {
-                  //     order.remove('name'); // 👈 移除不存在於 DB 表的欄位
-                  //     order.remove('selected'); // 👈 移除不存在於 DB 表的欄位
-                  //     order['options'] = optionsJson;
-                  //     order['menu_item_id'] = menuItemId;
-                  //   } else {
-                  //     print('無法找到菜單項目: ${order['name']}');
-                  //   }
-                  // }
                   // 準備 orderItems：轉換成 DB 格式
                   List<Map<String, dynamic>> processedItems = [];
 
@@ -471,16 +448,7 @@ String getTaiwanTimeNow() {
                       print('無法找到菜單項目: ${order['name']}');
                     }
                   }
-
-                  // await DatabaseHelper().insertOrderItems(orderId, orderItems);
-                  // // ✅ 正確做法：先刷新單號，再更新畫面
-                  // String newOrderNo =
-                  //     await fetchOrderNo(); // 假設你改 fetchOrderNo() 為回傳 String
-                  // print('成功儲存訂單項目$orderItems');
-                  // setState(() {
-                  //   orderItems.clear();
-                  //   _orderNumber = newOrderNo;
-                  // });
+     
                   try {
                     // ⛑️ 使用交易處理插入流程
                     int orderId = await DatabaseHelper().insertOrderWithItems(
@@ -846,33 +814,7 @@ String getTaiwanTimeNow() {
     // List<String> performanceList = ['業績 A', '業績 B', '業績 C', '業績 D'];
     return Scaffold(
       drawer: const AppDrawer(), 
-      // appBar: AppBar(title: const Text('POS 結帳系統')),
-      // 設置側邊列
-      // drawer: Drawer(
-      //   child: ListView(
-      //     padding: EdgeInsets.zero,
-      //     children: [
-      //       // 側邊列的頭部
-      //       DrawerHeader(
-      //         child: Text(
-      //           '業績列表',
-      //           style: TextStyle(color: Colors.white, fontSize: 24),
-      //         ),
-      //         decoration: BoxDecoration(color: Colors.brown),
-      //       ),
-      //       // 顯示硬編碼的業績列表
-      //       ...performanceList.map((item) {
-      //         return ListTile(
-      //           title: Text(item),
-      //           onTap: () {
-      //             // 點擊業績項目後的操作
-      //             Navigator.pop(context); // 關閉側邊列
-      //           },
-      //         );
-      //       }).toList(),
-      //     ],
-      //   ),
-      // ),
+  
       body: Row(
         children: [
           // 左側菜單區域

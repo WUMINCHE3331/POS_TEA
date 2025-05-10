@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:pos_system/screens/checkout_screen.dart';
 import 'DatabaseHelper.dart';
 import './screens/performance_screen.dart';
+import './screens/orderlist_screen.dart';
+import './screens/checkout_screen.dart';
+
 void main() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
   var dbHelper = DatabaseHelper();
-  await dbHelper.database;  // 初始化資料庫
+  await dbHelper.database; // 初始化資料庫
   runApp(const MyApp());
 }
 
@@ -15,15 +18,14 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    
     return MaterialApp(
       routes: {
-  '/performance': (context) => const PerformanceScreen(),
-},
+        '/performance': (context) => const PerformanceScreen(),
+        '/orderlist': (context) => const OrderListScreen(),
+        '/pos': (context) => const CheckoutScreen(),
+      },
       title: 'POS 系統',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const CheckoutScreen(), // 設置結帳頁面作為主畫面
     );
   }
@@ -31,18 +33,7 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
-
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }

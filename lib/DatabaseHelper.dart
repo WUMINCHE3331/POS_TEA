@@ -133,8 +133,147 @@ class DatabaseHelper {
       print("插入預設資料失敗: $e");
     }
   }
+Future<List<Map<String, dynamic>>> getOrderWithItems({
+  String startDate = '',
+  String endDate = '',
+  int offset = 0,
+  int limit = 10,
+}) async {
+  final db = await DatabaseHelper().database;
 
-  // ======= 操作函式區 =======
+  // Step 1: 查詢訂單 ID 並進行分頁
+  final orders = await db.rawQuery(
+    '''
+    SELECT o.order_id, o.order_no, o.total_price, o.received_cash, o.change,
+      o.payment_method, o.pickup_method, o.order_status, o.order_creation_time,
+      o.modify_time
+    FROM orders o
+    WHERE o.order_creation_time >= ? AND o.order_creation_time <= ?
+    ORDER BY o.order_creation_time DESC
+    LIMIT ? OFFSET ?
+    ''',
+    [startDate, endDate, limit, offset],
+  );
+
+  // Step 2: 查詢這些訂單的所有商品
+  final orderIds = orders.map((order) => order['order_id']).toList();
+  final placeholders = List.filled(orderIds.length, '?').join(',');
+  final orderItems = await db.rawQuery(
+    '''
+    SELECT oi.order_id, oi.order_item_id, oi.menu_item_id, mi.name AS menu_name, 
+           oi.quantity, oi.price, oi.options, oi.ice, oi.sugar_level, oi.eco_cup
+    FROM order_items oi
+    JOIN menu mi ON oi.menu_item_id = mi.id
+    WHERE oi.order_id IN ($placeholders)
+    ''',
+    orderIds,
+  );
+
+  // Step 3: 分組處理
+  final Map<int, Map<String, dynamic>> groupedOrders = {};
+
+  // 將訂單資料和商品資料合併
+  for (var order in orders) {
+    final int orderId = order['order_id'] as int;
+    groupedOrders[orderId] = {
+      'order_id': order['order_id'],
+      'order_no': order['order_no'],
+      'total_price': order['total_price'],
+      'received_cash': order['received_cash'],
+      'change': order['change'],
+      'payment_method': order['payment_method'],
+      'pickup_method': order['pickup_method'],
+      'order_status': order['order_status'],
+      'order_creation_time': order['order_creation_time'],
+      'modify_time': order['modify_time'],
+      'items': []
+    };
+  }
+
+  // 組合商品資料
+  for (var item in orderItems) {
+    final int orderId = item['order_id'] as int;
+    groupedOrders[orderId]!['items'].add({
+      'order_item_id': item['order_item_id'],
+      'menu_item_id': item['menu_item_id'],
+      'menu_name': item['menu_name'],
+      'quantity': item['quantity'],
+      'price': item['price'],
+      'options': item['options'],
+      'ice': item['ice'],
+      'sugar_level': item['sugar_level'],
+      'eco_cup': item['eco_cup'],
+    });
+  }
+
+  // 返回處理過的結果
+  return groupedOrders.values.toList();
+}
+
+
+
+
+  Future<Map<String, dynamic>> getInvalidOrderTotalAmount(
+    String startDate,
+    String endDate,
+  ) async {
+    final db = await DatabaseHelper().database;
+
+    final result = await db.rawQuery(
+      '''
+    SELECT SUM(total_price) as total, COUNT(*) as count
+    FROM orders
+    WHERE order_status = 'invalid'
+      AND order_creation_time >= ? AND order_creation_time <= ?
+    ''',
+      [startDate, endDate],
+    );
+
+    final row = result.first;
+    return {'total': row['total'] ?? 0, 'count': row['count'] ?? 0};
+  }
+
+  Future<int> getOrderCount(String startDate, String endDate) async {
+    final db = await DatabaseHelper().database;
+    final result = await db.rawQuery(
+      '''
+    SELECT COUNT(*) as count
+    FROM orders
+    WHERE order_creation_time >= ? AND order_creation_time <= ?
+    ''',
+      ["$startDate 00:00:00", "$endDate 23:59:59"],
+    );
+    return result.first['count'] != null ? (result.first['count'] as int) : 0;
+  }
+
+  //獲取拿取方式計次跟金額
+  Future<List<Map<String, dynamic>>> fetchPickupMethodCount(
+    String startDate,
+    String endDate,
+  ) async {
+    final db = await DatabaseHelper().database;
+    List<Map<String, dynamic>> result = [];
+
+    try {
+      result = await db.rawQuery(
+        '''
+      SELECT 
+        pickup_method, 
+        COUNT(*) AS method_count,
+        SUM(total_price) AS total_amount
+      FROM orders
+      WHERE order_creation_time BETWEEN ? AND ?
+        AND order_status = '成功'
+      GROUP BY pickup_method;
+    ''',
+        [startDate, endDate],
+      );
+    } catch (e) {
+      print('錯誤: $e');
+    }
+
+    return result;
+  }
 
   // 獲取最新的 order_number（last_order_no）
   Future<String> getLatestOrderNumber() async {
@@ -153,7 +292,7 @@ class DatabaseHelper {
       // 將 orderNumber 補滿四位數，若不足四位數則補零
       return orderNumber.toString().padLeft(4, '0');
     } else {
-      return '0000'; // 如果沒有資料，則返回 0 或其他適當的初始值
+      return '0001'; // 如果沒有資料，則返回 0 或其他適當的初始值
     }
   }
 
@@ -161,6 +300,12 @@ class DatabaseHelper {
   Future<String> generateOrderNumber() async {
     final db = await database;
     String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  await db.delete(
+    'order_numbers',
+    where: 'date != ?',
+    whereArgs: [today],
+  );
+
 
     // 查詢今天的單號紀錄
     var result = await db.query(
@@ -170,7 +315,7 @@ class DatabaseHelper {
       limit: 1,
     );
 
-    int lastOrderNo = 0;
+    int lastOrderNo = 1;
 
     if (result.isNotEmpty) {
       // 如果今天有紀錄，則從資料庫中取得最後的單號
@@ -277,6 +422,7 @@ class DatabaseHelper {
     });
   }
 
+  //插入訂單
   Future<int> insertOrder(Map<String, dynamic> order) async {
     final db = await database;
 
@@ -286,6 +432,7 @@ class DatabaseHelper {
     return orderId; // 返回插入的 order_id
   }
 
+  //加入詳細訂單
   Future<void> insertOrderItems(
     int orderId,
     List<Map<String, dynamic>> orderItems,
@@ -300,12 +447,6 @@ class DatabaseHelper {
       // 插入訂單項目
       await db.insert('order_items', item);
     }
-  }
-
-  // 插入訂單項目
-  Future<int> insertOrderItem(Map<String, dynamic> orderItem) async {
-    final db = await database;
-    return await db.insert('order_items', orderItem);
   }
 
   // 插入選項
@@ -348,6 +489,7 @@ class DatabaseHelper {
     return result.isNotEmpty;
   }
 
+  //查詢總業績
   Future<List<Map<String, dynamic>>> getTotalSales(
     String startDate, // 例如 '2025-05-05'
     String endDate, // 例如 '2025-05-05'
@@ -377,8 +519,10 @@ class DatabaseHelper {
     FROM order_items oi
     JOIN menu mi ON oi.menu_item_id = mi.id
     JOIN orders o ON oi.order_id = o.order_id
-    WHERE o.  order_creation_time  BETWEEN ? AND ?
+    WHERE o.order_creation_time  BETWEEN ? AND ?
+    AND o.order_status = '成功'
     GROUP BY oi.menu_item_id
+    
   ''',
       [startDate, endDate],
     );
@@ -389,7 +533,6 @@ class DatabaseHelper {
     String startDate,
     String endDate,
   ) async {
-   
     final db = await database;
     return await db.rawQuery(
       '''
@@ -402,6 +545,7 @@ class DatabaseHelper {
     );
   }
 
+  // 查詢每小時業績
   Future<List<Map<String, dynamic>>> getHourlySales(
     String startDate,
     String endDate,

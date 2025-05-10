@@ -1,7 +1,9 @@
+import 'dart:ffi';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pos_system/DatabaseHelper.dart';
 import 'package:intl/intl.dart';
+import 'app_drawer.dart'; // 匯入側邊欄元件
 
 class PerformanceScreen extends StatefulWidget {
   const PerformanceScreen({super.key});
@@ -10,79 +12,102 @@ class PerformanceScreen extends StatefulWidget {
   _PerformanceScreenState createState() => _PerformanceScreenState();
 }
 
+List<String> salesInfo = [];
+
 class _PerformanceScreenState extends State<PerformanceScreen> {
   bool isLoading = false;
   DateTime selectedStartDate = DateTime.now().toLocal();
   DateTime selectedEndDate = DateTime.now().toLocal();
-  final DateTime taiwanNow = DateTime.now().toLocal();
+  DateTime nowday = DateTime.now().toLocal();
   String startDate = '';
   String endDate = '';
   num totalSales = 0;
+  num orderCountD = 0;
+  num InvalidOrderCount = 0;
+  num InvalidOrderMoney = 0;
   List<Map<String, dynamic>> productSales = [];
   List<Map<String, dynamic>> paymentMethodStats = [];
-
+  List<Map<String, dynamic>> pickMethods = [];
+  List<Map<String, dynamic>> totalSalesResult = [];
+  int orderCount = 0;
+  Map<String, dynamic> InValidOrder = {};
+  List<Map<String, dynamic>> hourlyData = [];
   @override
   void initState() {
     super.initState();
     _fetchPerformanceData();
   }
 
-  List<int> hourlySales = List.generate(24, (_) => 0);
-
-  // 加載業績數據的方法
   Future<void> _fetchPerformanceData() async {
-    setState(() {
-      isLoading = true;
-    });
+    try {
+      setState(() {
+        isLoading = true;
+      });
 
-    // 更新日期範圍
-    startDate =
-        '${selectedStartDate.year}-${selectedStartDate.month}-${selectedStartDate.day}';
-    endDate =
-        '${selectedEndDate.year}-${selectedEndDate.month}-${selectedEndDate.day}';
-    final formatter = DateFormat('yyyy-MM-dd');
+      final formatter = DateFormat('yyyy-MM-dd');
+      startDate = formatter.format(selectedStartDate);
+      endDate = formatter.format(selectedEndDate);
 
-    startDate = formatter.format(selectedStartDate);
-    endDate = formatter.format(selectedEndDate);
+      final String startDateTime = '$startDate 00:00:00';
+      final String endDateTime = '$endDate 23:59:59';
 
-    final String startDateTime = '$startDate 00:00:00';
-    final String endDateTime = '$endDate 23:59:59';
+      print('Fetching data for the date range: $startDateTime to $endDateTime');
+      InValidOrder = await DatabaseHelper().getInvalidOrderTotalAmount(
+        startDateTime,
+        endDateTime,
+      );
+      print('作廢單數跟金額${InValidOrder}');
+      orderCount = await DatabaseHelper().getOrderCount(startDate, endDate);
+      print('訂單總數${orderCount}');
 
-    print(
-      'Fetching data for the date range: $startDateTime to $endDateTime',
-    ); // 打印日期範圍
+      hourlyData = await DatabaseHelper().getHourlySales(
+        startDateTime,
+        endDateTime,
+      );
+      print('每小時業績${hourlyData}');
 
-    // 從資料庫查詢數據
-    List<Map<String, dynamic>> totalSalesResult = await DatabaseHelper()
-        .getTotalSales(startDateTime, endDateTime);
+      totalSalesResult = await DatabaseHelper().getTotalSales(
+        startDateTime,
+        endDateTime,
+      );
+      print('總業績${totalSalesResult}');
+      pickMethods = await DatabaseHelper().fetchPickupMethodCount(
+        startDateTime,
+        endDateTime,
+      );
+      productSales = await DatabaseHelper().getSalesByProduct(
+        startDateTime,
+        endDateTime,
+      );
+      print('我是產品peramount${productSales}');
+      paymentMethodStats = await DatabaseHelper().getSalesByPaymentMethod(
+        startDateTime,
+        endDateTime,
+      );
+      print(pickMethods);
+    } finally {
+      setState(() {
+        isLoading = false;
+        totalSales =
+            totalSalesResult.isNotEmpty &&
+                    totalSalesResult[0]['total_sales'] != null
+                ? (totalSalesResult[0]['total_sales'] as num)
+                : 0;
+        orderCount = orderCount;
 
-    setState(() {
-      totalSales =
-          totalSalesResult.isNotEmpty &&
-                  totalSalesResult[0]['total_sales'] != null
-              ? (totalSalesResult[0]['total_sales'] as num)
-              : 0.0;
+        InvalidOrderCount =
+            InValidOrder.isNotEmpty && InValidOrder['count'] != null
+                ? (InValidOrder['count'] as num)
+                : 0;
 
-      print('Total sales for selected date: \$${totalSales}');
-    });
-
-    productSales = await DatabaseHelper().getSalesByProduct(
-      startDateTime,
-      endDateTime,
-    );
-    paymentMethodStats = await DatabaseHelper().getSalesByPaymentMethod(
-      startDateTime,
-      endDateTime,
-    );
-    List<Map<String, dynamic>> hourlyData = await DatabaseHelper()
-        .getHourlySales(startDateTime, endDateTime);
-    hourlySales = hourlyData.map((data) => data['total_sales'] as int).toList();
-    print(hourlyData);print(hourlySales);
-    setState(() {
-      isLoading = false;
-    });
+        InvalidOrderCount =
+            InValidOrder.isNotEmpty && InValidOrder['total'] != null
+                ? (InValidOrder['total'] as num)
+                : 0;
+        // InValidOrder ;
+      });
+    }
   }
-
 
   // 日期區間選擇方法
   Future<void> _selectDateRange(BuildContext context) async {
@@ -94,11 +119,11 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         end: selectedEndDate,
       ),
       firstDate: DateTime(2020),
-      lastDate: DateTime(taiwanNow.year, taiwanNow.month, taiwanNow.day),
+      lastDate: DateTime(nowday.year, nowday.month, nowday.day),
     );
 
     // 確保選擇的日期範圍不為 null 且更新狀態
-    if (picked != null && picked.start != null && picked.end != null) {
+    if (picked != null) {
       setState(() {
         selectedStartDate = picked.start;
         selectedEndDate = picked.end;
@@ -111,10 +136,13 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('業績查詢')),
+      drawer: const AppDrawer(),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.of(context).size.width * 0.1,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch, // 撐滿寬度
           children: [
             const SizedBox(height: 20),
             // 日期區間選擇按鈕
@@ -130,17 +158,27 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   vertical: 14,
                   horizontal: 20,
                 ), // 按鈕內邊距
-                elevation: 5, // 按鈕陰影
-                shadowColor: Colors.blue.withOpacity(0.3), // 陰影顏色
+                elevation: 3, // 按鈕陰影
               ),
-              child: Text(
-                '選擇日期區間: ${DateFormat('yyyy-MM-dd').format(selectedStartDate)} 至 ${DateFormat('yyyy-MM-dd').format(selectedEndDate)}   總業績: \$${totalSales}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-                textAlign: TextAlign.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '選擇日期: ${DateFormat('yyyy-MM-dd').format(selectedStartDate)} 至 ${DateFormat('yyyy-MM-dd').format(selectedEndDate)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8), // 間距
+                  Text(
+                    '總業績: \$${totalSales}  總筆數:${orderCount} 作廢筆數:${InvalidOrderCount} 作廢金額\$${InvalidOrderMoney}',
+                    style: const TextStyle(fontSize: 16, letterSpacing: 0.5),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
 
@@ -167,39 +205,163 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(12.0),
+
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // 左側：產品銷售統計
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // const SizedBox(height: 10),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              '產品銷售統計',
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Colors.grey,
+                                        ), // 外框邊線
+                                        borderRadius: BorderRadius.circular(
+                                          8,
+                                        ), // 圓角
+                                      ),
+                                      padding: const EdgeInsets.all(12), // 內距
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // const SizedBox(height: 10),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Center(
+                                                child: const Text(
+                                                  '產品銷售統計',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+
+                                              const SizedBox(height: 10),
+                                              ...productSales.map((product) {
+                                                return Column(
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 8,
+                                                          ),
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                            border: Border(
+                                                              bottom: BorderSide(
+                                                                color:
+                                                                    Colors.grey,
+                                                              ), // 加底線邊框
+                                                            ),
+                                                          ),
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(
+                                                              product['name'],
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        14,
+                                                                  ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            'x${product['total_quantity']}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 14,
+                                                                ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Text(
+                                                            '\$${product['total_sales'] ?? 0}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 14,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(
+                                                      height: 4,
+                                                    ), // 行距
+                                                  ],
+                                                );
+                                              }).toList(),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey,
+                                      ), // 外框邊線
+                                      borderRadius: BorderRadius.circular(
+                                        8,
+                                      ), // 圓角
+                                    ),
+                                    padding: const EdgeInsets.all(12), // 內距
+                                    child: Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Center(
+                                            child: const Text(
+                                              '業績/小時',
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            const SizedBox(height: 10),
-                                            ...productSales.map((product) {
-                                              return Column(
-                                                children: [
-                                                  Row(
+                                          ),
+
+                                          const SizedBox(height: 10),
+                                          ...hourlyData.map((hourlyData) {
+                                            return Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        border: Border(
+                                                          bottom: BorderSide(
+                                                            color: Colors.grey,
+                                                          ), // 加底線邊框
+                                                        ),
+                                                      ),
+                                                  child: Row(
                                                     mainAxisAlignment:
                                                         MainAxisAlignment
                                                             .spaceBetween,
                                                     children: [
                                                       Expanded(
                                                         child: Text(
-                                                          product['name'],
+                                                          '${hourlyData['hour']} 時'
+                                                                  ?.toString() ??
+                                                              '未知業績小時',
                                                           style:
                                                               const TextStyle(
                                                                 fontSize: 14,
@@ -210,87 +372,200 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                                         ),
                                                       ),
                                                       Text(
-                                                        'x${product['total_quantity']}',
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        '\$${product['total_sales'] ?? 0}',
+                                                        '\$${hourlyData['total_sales'] ?? 0}',
                                                         style: const TextStyle(
                                                           fontSize: 14,
                                                         ),
                                                       ),
                                                     ],
                                                   ),
-                                                  const SizedBox(
-                                                    height: 4,
-                                                  ), // 行距
-                                                ],
-                                              );
-                                            }).toList(),
-                                          ],
-                                        ),
-                                      ],
+                                                ),
+                                                const SizedBox(
+                                                  height: 4,
+                                                ), // 行間距
+                                              ],
+                                            );
+                                          }).toList(),
+                                        ],
+                                      ),
                                     ),
                                   ),
-
                                   const SizedBox(width: 16),
 
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          '支付方式統計',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        ...paymentMethodStats.map((payment) {
-                                          return Column(
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      payment['payment_method']
-                                                              ?.toString() ??
-                                                          '未知付款方式',
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    'x${payment['total_count'] ?? 0}',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    '\$${payment['total_sales'] ?? 0}',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ],
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey,
+                                      ), // 外框邊線
+                                      borderRadius: BorderRadius.circular(
+                                        8,
+                                      ), // 圓角
+                                    ),
+                                    padding: const EdgeInsets.all(12), // 內距
+                                    child: Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Center(
+                                            child: const Text(
+                                              '支付統計',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                              const SizedBox(height: 4), // 行間距
-                                            ],
-                                          );
-                                        }).toList(),
-                                      ],
+                                            ),
+                                          ),
+
+                                          const SizedBox(height: 10),
+                                          ...paymentMethodStats.map((payment) {
+                                            return Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        border: Border(
+                                                          bottom: BorderSide(
+                                                            color: Colors.grey,
+                                                          ), // 加底線邊框
+                                                        ),
+                                                      ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          payment['payment_method']
+                                                                  ?.toString() ??
+                                                              '未知付款方式',
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 14,
+                                                              ),
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        'x${payment['total_count'] ?? 0}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        '\$${payment['total_sales'] ?? 0}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(
+                                                  height: 4,
+                                                ), // 行間距
+                                              ],
+                                            );
+                                          }).toList(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey,
+                                      ), // 外框邊線
+                                      borderRadius: BorderRadius.circular(
+                                        8,
+                                      ), // 圓角
+                                    ),
+                                    padding: const EdgeInsets.all(12), // 內距
+                                    child: Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Center(
+                                            child: const Text(
+                                              '外帶統計',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+
+                                          const SizedBox(height: 10),
+                                          ...pickMethods.map((pickmethods) {
+                                            return Column(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        border: Border(
+                                                          bottom: BorderSide(
+                                                            color: Colors.grey,
+                                                          ), // 加底線邊框
+                                                        ),
+                                                      ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          pickmethods['pickup_method']
+                                                                  ?.toString() ??
+                                                              '未知付款方式',
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 14,
+                                                              ),
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        'x${pickmethods['method_count'] ?? 0}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        '\$${pickmethods['total_amount'] ?? 0}',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(
+                                                  height: 4,
+                                                ), // 行間距
+                                              ],
+                                            );
+                                          }).toList(),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -298,43 +573,6 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                             ),
                           ),
                         ),
-
-                         const SizedBox(height: 20),
-            // Loading indicator
-            isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                    children: [
-                      // 顯示總業績
-                      Card(
-                        elevation: 3,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ListTile(
-                          title: const Text('總業績'),
-                          subtitle: Text('\$${totalSales.toStringAsFixed(2)}'),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 16.0,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // 顯示每小時營業額的文字
-                      const Text(
-                        '每小時營業額',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // 這裡顯示每小時的銷售數據
-                     
-                    ],
-                  ),
-    
                       ],
                     ),
                   ],

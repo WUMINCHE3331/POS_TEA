@@ -16,11 +16,29 @@ class AppDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.bar_chart),
+            title: const Text('POS'),
+            onTap: () {
+              Navigator.pop(context); // 關閉 Drawer
+              // 可在此跳轉至業績查詢頁面
+              Navigator.pushNamed(context, '/pos');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart),
             title: const Text('業績查詢'),
             onTap: () {
               Navigator.pop(context); // 關閉 Drawer
               // 可在此跳轉至業績查詢頁面
               Navigator.pushNamed(context, '/performance');
+            },
+          ),
+           ListTile(
+            leading: const Icon(Icons.bar_chart),
+            title: const Text('訂單列表'),
+            onTap: () {
+              Navigator.pop(context); // 關閉 Drawer
+              // 可在此跳轉至業績查詢頁面
+              Navigator.pushNamed(context, '/orderlist');
             },
           ),
           ListTile(
